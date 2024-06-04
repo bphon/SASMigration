@@ -27,7 +27,7 @@ root = ET.Element("NAACCRXML")
 # Add child elements for each data point
 record = ET.SubElement(root, "Record")
 record.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-record.set("xsi:noNamespaceSchemaLocation", "https://github.com/naaccr/naaccr-xml/blob/main/naaccr_xml.xsd")
+record.set("xsi:noNamespaceSchemaLocation", "https://github.com/imsweb/naaccr-xml/blob/master/src/main/resources/xsd/naaccr_dictionary_1.7.xsd")
 record.set("type", data["Record"]["RecordType"])
 
 registry_id = ET.SubElement(record, "RegistryId")
