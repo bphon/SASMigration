@@ -1,0 +1,69 @@
+import xml.etree.ElementTree as ET
+
+# Sample data
+data = {
+    "Record": {
+        "RecordType": "I",
+        "RegistryId": "123456789",
+        "Patient": {
+            "PatientId": "P123456789",
+            "DateOfBirth": "19900101",
+            "Sex": "1"
+        },
+        "PrimaryCancer": {
+            "Site": "C509",
+            "Morphology": "8070/3",
+            "Behavior": "3",
+            "Grade": "9",
+            "DiagnosticConfirmation": "1",
+            "DateOfDiagnosis": "20220101"
+        }
+    }
+}
+
+# Create the root element
+root = ET.Element("NAACCRXML")
+
+# Add child elements for each data point
+record = ET.SubElement(root, "Record")
+record.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+record.set("xsi:noNamespaceSchemaLocation", "https://github.com/naaccr/naaccr-xml/blob/main/naaccr_xml.xsd")
+record.set("type", data["Record"]["RecordType"])
+
+registry_id = ET.SubElement(record, "RegistryId")
+registry_id.text = data["Record"]["RegistryId"]
+
+patient = ET.SubElement(record, "Patient")
+patient_id = ET.SubElement(patient, "PatientId")
+patient_id.text = data["Record"]["Patient"]["PatientId"]
+
+date_of_birth = ET.SubElement(patient, "DateOfBirth")
+date_of_birth.text = data["Record"]["Patient"]["DateOfBirth"]
+
+sex = ET.SubElement(patient, "Sex")
+sex.text = data["Record"]["Patient"]["Sex"]
+
+primary_cancer = ET.SubElement(record, "PrimaryCancer")
+site = ET.SubElement(primary_cancer, "Site")
+site.text = data["Record"]["PrimaryCancer"]["Site"]
+
+morphology = ET.SubElement(primary_cancer, "Morphology")
+morphology.text = data["Record"]["PrimaryCancer"]["Morphology"]
+
+behavior = ET.SubElement(primary_cancer, "Behavior")
+behavior.text = data["Record"]["PrimaryCancer"]["Behavior"]
+
+grade = ET.SubElement(primary_cancer, "Grade")
+grade.text = data["Record"]["PrimaryCancer"]["Grade"]
+
+diagnostic_confirmation = ET.SubElement(primary_cancer, "DiagnosticConfirmation")
+diagnostic_confirmation.text = data["Record"]["PrimaryCancer"]["DiagnosticConfirmation"]
+
+date_of_diagnosis = ET.SubElement(primary_cancer, "DateOfDiagnosis")
+date_of_diagnosis.text = data["Record"]["PrimaryCancer"]["DateOfDiagnosis"]
+
+# Create and write the XML file
+tree = ET.ElementTree(root)
+tree.write("naaccr_v23.xml", encoding="utf-8", xml_declaration=True)
+
+print("XML file generated successfully.")
