@@ -47,7 +47,7 @@ def add_record_to_doc(doc, row):
     doc.add_paragraph(f"30 April 2024                              Death Registration No.{death_registration_no}\n")
     doc.add_paragraph(f"                                                 Death Pre Registration Identifier  {death_pre_reg_identifier}\n")
     doc.add_paragraph(f"Name:        {name} Sex: {sex}\n")
-    doc.add_paragraph(f"Address:    {address}\n")
+    doc.add_paragraph(f"Address:    {address}                       City:{row.get('deceased birth city')}\n")
     doc.add_paragraph(f"Death Date:  {death_date} Birth Date:    {birth_date}\n")
     doc.add_paragraph(f"Mar. Status:{marital_status}                   Spouse:{spouse}\n")
     doc.add_paragraph(f"Father:      {father}\n")
