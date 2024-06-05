@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jun  4 23:55:07 2024
-
-@author: Jerome Corpuz 
-"""
-
 import os
 import logging
 import glob
@@ -14,20 +6,29 @@ import xml.etree.ElementTree as ET
 from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
 
-# Setting up basic logging configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-class xmlLoadHandler:
-    def __init__(self, fieldMapping, columnMapping):
+class csvToXMLHandler:
+    def __init__(self):  
         self._data_dir = os.path.join(os.getcwd(), "data")
-        self._processed_dir = os.path.join(os.getcwd(), "data", "processed")
-        os.makedirs(self._processed_dir, exist_ok=True)  # Ensure processed directory exists
+        self._processed_dir = os.path.join(os.getcwd(), "processed")
+        os.makedirs(self._processed_dir, exist_ok=True)
         self._tumors = []
         self._fieldmapping = fieldMapping
         self._columnmapping = columnMapping
 
-    def process(self):
+    def Process(self):
+        logging.info(f"Current working directory: {os.getcwd()}")
+        logging.info(f"Data directory: {self._data_dir}")
+        if not os.path.exists(self._data_dir):
+            logging.warning("Data directory does not exist.")
+            return
+
         files = glob.glob(os.path.join(self._data_dir, "*.csv"))
+        logging.info(f"Files in data directory: {os.listdir(self._data_dir)}")
+        logging.info(f"Found files: {files}")
+        if not files:
+            logging.warning("No CSV files found in the data directory.")
+            return
+
         files.sort(key=os.path.getmtime)
         for filepath in files:
             logging.info(f"Processing {filepath}")
@@ -48,6 +49,7 @@ class xmlLoadHandler:
                     value = row.get(column, '').strip()
                     setattr(ti, field, value)
                 tumors_data.append(ti)
+        logging.info(f"Parsed {len(tumors_data)} tumors from {filepath}")
         return tumors_data
 
     def parse_header_fields(self, filepath):
@@ -59,6 +61,7 @@ class xmlLoadHandler:
                 field_id = self._fieldmapping.get(column_name.strip())
                 if field_id:
                     setattr(hi, field_id, column_name.strip())
+            logging.info(f"Parsed header fields from {filepath}")
             return hi
 
     def generate_xml(self, filepath):
@@ -76,6 +79,7 @@ class xmlLoadHandler:
                 item_element = ET.SubElement(patient_element, "Item", naaccrId=field_id)
                 item_element.text = value
 
+        logging.info("Generated XML content")
         return ET.tostring(root, encoding='utf-8', method='xml').decode('utf-8')
 
     def save_xml(self, xml_data, filepath):
@@ -84,6 +88,9 @@ class xmlLoadHandler:
         output_path = os.path.join(self._processed_dir, new_filename)
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(xml_data)
+        logging.info(f"Saved XML to {output_path}")
 
-handler = xmlLoadHandler(fieldMapping, columnMapping)
-handler.process()
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    handler = csvToXMLHandler()
+    handler.Process()

@@ -1,4 +1,8 @@
-import os, logging, sqlite3, glob
+import os
+import logging
+import sqlite3
+import glob
+import csv
 import xml.etree.ElementTree as et
 from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
@@ -6,26 +10,37 @@ from utility import Utility
 
 class xmlLoadHandler:
 
-    def __init__(self):  
-        self._data_dir = os.getcwd() + "\data"
-        self._processed_dir = os.getcwd() + "\data\processed"
+    def __init__(self):
+        self._data_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data")
+        self._processed_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data", "processed")
+        os.makedirs(self._processed_dir, exist_ok=True)
         self._tumors = []
         self._fieldmapping = fieldMapping
         self._columnmapping = columnMapping
 
-    # process all naaccr v21 xml files in data directory        
     def Process(self):
-        files = glob.glob(os.path.join(self._data_dir, "*.XML"))
-        files.sort(key=os.path.getmtime)    # process in asc order
-        for filepath in files:
+        # Process XML files
+        xml_files = glob.glob(os.path.join(self._data_dir, "*.XML"))
+        xml_files.sort(key=os.path.getmtime)
+        for filepath in xml_files:
             self._tumors.clear()
-            logging.info(f"[processing {filepath}]")
+            logging.info(f"[processing XML {filepath}]")
             tree = et.parse(filepath)
             root = tree.getroot()
             hi = self.ParseHeaderFields(root)
             logging.info(f"- parsing XML")
             self.ParseTumors(root, hi)
             logging.info(f"- saving tumors")
+            self.SaveTumors()
+            self.MoveFile(filepath)
+        
+        # Process CSV files
+        csv_files = glob.glob(os.path.join(self._data_dir, "*.csv"))
+        csv_files.sort(key=os.path.getmtime)
+        for filepath in csv_files:
+            self._tumors.clear()
+            logging.info(f"[processing CSV {filepath}]")
+            self.ParseCsv(filepath)
             self.SaveTumors()
             self.MoveFile(filepath)
 
@@ -52,6 +67,17 @@ class xmlLoadHandler:
                     setattr(ti, node.attrib.get("naaccrId"), node.text.strip() if node.text else "")
                 self._tumors.append(ti)
 
+    def ParseCsv(self, filepath):
+        with open(filepath, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                ti = TumorItem()
+                for field, column in self._fieldmapping.items():
+                    value = row.get(column, '').strip()
+                    setattr(ti, field, value)
+                self._tumors.append(ti)
+        logging.info(f"Parsed {len(self._tumors)} tumors from CSV {filepath}")
+
     def SaveTumors(self):
         qty = 0
         sql, keys = self.GenerateInsertSQL()
@@ -61,24 +87,20 @@ class xmlLoadHandler:
             if self.MostRecentTumor(conn, tumor):
                 values = []
                 for key in keys:
-                    if hasattr(tumor, key) == True:
+                    if hasattr(tumor, key):
                         attribute = getattr(tumor, key)
-                        if self.MaxLength(key, attribute) == False:
-                            attribute = None # set filed value to null if too long
+                        if not self.MaxLength(key, attribute):
+                            attribute = None
                         values.append(attribute)
                     else:
                         values.append(None)
                 self.DeleteTumor(conn, tumor)
                 cursor.execute(sql, values)
                 conn.commit()
-                qty = qty + 1 
-        logging.info(f"[number of XML items saved]: {qty}")
+                qty += 1
+        logging.info(f"[number of XML/CSV items saved]: {qty}")
 
     def MostRecentTumor(self, conn, tumor):
-        # note: expects key fields medicalRecordNumber, tumorRecordNumber, registryId, dateCaseReportExported to exist
-        # if medicalRecordNumber doesn't exist, patientIdNumber will be used instead. if this doesn't exist, empty string will be used. 
-        # if dateCaseReportExported doesn't exist, dateCaseLastChanged will be used instead. if this doesn't exist, empty string will be used.  
-        # you may need to change to the code to accommodate your field names as needed
         params = (getattr(tumor,"medicalRecordNumber", getattr(tumor,"patientIdNumber", "")), 
             getattr(tumor, "tumorRecordNumber"), getattr(tumor, "registryId"), getattr(tumor, "dateCaseReportExported", getattr(tumor,"dateCaseLastChanged", "")))
         sql = """select * from NAACCR_DATA 
@@ -87,14 +109,9 @@ class xmlLoadHandler:
         cmd = conn.cursor()
         cmd.execute(sql, params)
         row = cmd.fetchone()
-        if row is None:
-            return True
-        return False
+        return row is None
 
     def DeleteTumor(self, conn, tumor):
-        # note: expects key fields medicalRecordNumber, tumorRecordNumber, registryId to exist
-        # if medicalRecordNumber doesn't exist, patientIdNumber will be used instead. if this doesn't exist, empty string will be used.  
-        # you may need to change to the code to accommodate your field names as needed
         params = (getattr(tumor,"medicalRecordNumber", getattr(tumor,"patientIdNumber", "")), getattr(tumor, "tumorRecordNumber"), getattr(tumor, "registryId"))
         sql = """delete from NAACCR_DATA 
             where MEDICAL_RECORD_NUMBER_N2300 = ? and TUMOR_RECORD_NUMBER_N60 = ? and REGISTRY_ID_N40 = ?"""
@@ -102,7 +119,6 @@ class xmlLoadHandler:
         cmd.execute(sql, params)
         conn.commit()
 
-    # build sql insert based on columns in field mapping
     def GenerateInsertSQL(self):
         keys = []
         fields1 = ""
@@ -118,14 +134,11 @@ class xmlLoadHandler:
         sql = f"insert into NAACCR_DATA ({fields1}) values ({fields2})"
         return (sql, keys)
 
-    # move file to processed directory after processed
-    # note:  processed directory is cleared each time on each run
     def MoveFile(self, filepath):
         if not os.path.exists(self._processed_dir):
             os.makedirs(self._processed_dir)
         os.rename(filepath, os.path.join(self._processed_dir, os.path.basename(filepath)))
 
-    # validate max field length based on column mapping config in mapping.py
     def MaxLength(self, key, attribute):
         dbfield = self._fieldmapping[key]
         maxlen = self._columnmapping[dbfield]
@@ -134,6 +147,7 @@ class xmlLoadHandler:
             return False
         return True
 
-
-
-    
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    handler = xmlLoadHandler()
+    handler.Process()

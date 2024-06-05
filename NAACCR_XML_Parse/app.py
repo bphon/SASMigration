@@ -7,7 +7,6 @@ from repository import Repository
 # input data files 
 # - place .xml files (or .zip containing .xml) in in $cwd\data
 class App:
-
     def __init__(self):  
         self._util = Utility()
         self._util.ConfigureLogging()
@@ -17,7 +16,7 @@ class App:
             logging.info('*** Start ***')
             self.Config()
             Repository().Configure()    # create local db
-            xmlLoadHandler().Process()  # read xml files and save them to local db
+            xmlLoadHandler().Process()  # read CSV files and save them to local db
             Repository().ExportToTabDelimitedText() # optional
             logging.info('*** Stop ***')
         except:
@@ -26,18 +25,20 @@ class App:
     def Config(self):
         # make sure processed directory exists and is ready
         import shutil
-        if os.path.exists(os.getcwd() + '\data\processed'):
-            shutil.rmtree(os.getcwd() + '\data\processed')
-        os.makedirs(os.getcwd() + '\data\processed')
+        processed_dir = os.path.join(os.getcwd(), 'data', 'processed')
+        if os.path.exists(processed_dir):
+            shutil.rmtree(processed_dir)
+        os.makedirs(processed_dir)
 
         # unzip any zipped files
         import zipfile
-        path_to_zip_file = os.getcwd() + '\data'
+        path_to_zip_file = os.path.join(os.getcwd(), 'data')
         files = [x for x in os.listdir(path_to_zip_file) if x.endswith(".zip")]
         for filename in files:
-            with zipfile.ZipFile((path_to_zip_file + "\\" + filename), 'r') as zip_ref:
+            with zipfile.ZipFile(os.path.join(path_to_zip_file, filename), 'r') as zip_ref:
                 zip_ref.extractall(path_to_zip_file)
-            os.rename(path_to_zip_file + "\\" + filename, path_to_zip_file + "\\processed\\" + filename + ".unzipped")
+            os.rename(os.path.join(path_to_zip_file, filename), os.path.join(processed_dir, filename + ".unzipped"))
 
-app = App()
-app.Process()
+if __name__ == "__main__":
+    app = App()
+    app.Process()
