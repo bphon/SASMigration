@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 
 from docx import Document
@@ -6,7 +7,7 @@ from docx import Document
 
 # Load the CSV data
 
-csv_file_path = "ABCBM_2024_2024_04_29.csv"
+csv_file_path = r"SASMigration\ABCBM_2024_2024_04_29.csv"
 
 data = pd.read_csv(csv_file_path)
 

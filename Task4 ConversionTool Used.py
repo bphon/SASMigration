@@ -17,8 +17,8 @@ pd.set_option('display.max_colwidth', None)
 NFMT = {1: 'current', 2: 'usual', 3: 'preferred', 4: 'birth', 5: 'other', 6: 'Not defined'}
 
 # Load data
-registry = pd.read_csv("ABCBM_2024_2024_04_29.csv")
-regsupp = pd.read_csv("ABCBM_2024_2024_04_29.csv")
+registry = pd.read_csv("SASMigration\ABCBM_2024_2024_04_29.csv")
+regsupp = pd.read_csv("SASMigration\ABCBM_2024_2024_04_29.csv")
 
 # Define macros
 rdate = "2024_05_23"

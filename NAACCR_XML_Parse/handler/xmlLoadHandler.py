@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import glob
 import csv
-import xml.etree.ElementTree as et
+import xml.etree.ElementTree as ET
 from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
 from utility import Utility
@@ -25,7 +25,7 @@ class xmlLoadHandler:
         for filepath in xml_files:
             self._tumors.clear()
             logging.info(f"[processing XML {filepath}]")
-            tree = et.parse(filepath)
+            tree = ET.parse(filepath)
             root = tree.getroot()
             hi = self.ParseHeaderFields(root)
             logging.info(f"- parsing XML")
@@ -41,7 +41,8 @@ class xmlLoadHandler:
             self._tumors.clear()
             logging.info(f"[processing CSV {filepath}]")
             self.ParseCsv(filepath)
-            self.SaveTumors()
+            xml_data = self.generate_xml()
+            self.save_xml(xml_data, filepath)
             self.MoveFile(filepath)
 
     def ParseHeaderFields(self, root):
@@ -77,6 +78,27 @@ class xmlLoadHandler:
                     setattr(ti, field, value)
                 self._tumors.append(ti)
         logging.info(f"Parsed {len(self._tumors)} tumors from CSV {filepath}")
+
+    def generate_xml(self):
+        root = ET.Element("NaaccrData", xmlns="http://naaccr.org/naaccrxml")
+        
+        for tumor_data in self._tumors:
+            patient_element = ET.SubElement(root, "Patient")
+            tumor_element = ET.SubElement(patient_element, "Tumor")
+            for field_id, value in vars(tumor_data).items():
+                item_element = ET.SubElement(tumor_element, "Item", naaccrId=field_id)
+                item_element.text = value
+
+        logging.info("Generated XML content from CSV data")
+        return ET.tostring(root, encoding='utf-8', method='xml').decode('utf-8')
+
+    def save_xml(self, xml_data, filepath):
+        base_filename = os.path.basename(filepath)
+        new_filename = os.path.splitext(base_filename)[0] + ".xml"
+        output_path = os.path.join(self._processed_dir, new_filename)
+        with open(output_path, 'w', encoding='utf-8') as file:
+            file.write(xml_data)
+        logging.info(f"Saved XML to {output_path}")
 
     def SaveTumors(self):
         qty = 0
