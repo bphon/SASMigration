@@ -1,0 +1,19 @@
+
+****************************************
+
+Cervical Cancer Cases
+Registry Request 2014-009, monthly runs
+
+Results
+ There are X cervical cancers representing Y individuals
+ on run date 2024-06-06.
+
+Criteria
+  Site c53, any morphology
+  Behaviour /1 /2 /3
+  Registry Status not in Review
+  Female
+  Alive or Dead
+  Age at diagnosis >= 18
+  Any Residence
+  Cases diagnosed between 01JAN1980 and (approximately) 2024-06-06

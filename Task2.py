@@ -1,30 +1,33 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jun  4 13:47:00 2024
-
-@author: brianphong
-"""
-
 import pandas as pd
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
+import os
 
 # Define file paths
-registry_path = "/data/u01/sas/sasdata/CMORE/ACR/Dataset_Creation/Data/malig.csv"
-person_path = "/data/u01/sas/sasdata/CMORE/ACR/Dataset_Creation/Data/person.csv"
-output_path = "/data/u01/sas/sasdata/CMORE/ACRONLY/Projects/Cancer Screening/Cervix/Output/"
-log_path = f"{output_path}Cervix_{datetime.now().strftime('%Y%m%d')}.log"
+registry_path = r"G:\OneDrive\Desktop\AHS Work\SASMigration\CVX08AUG2023.csv"
+person_path = r"G:\OneDrive\Desktop\AHS Work\SASMigration\CVX08AUG2023.csv"
+output_path = r"G:\OneDrive\Desktop\AHS Work\SASMigration\project2output"
+log_path = f"{output_path}\\Cervix_{datetime.now().strftime('%Y%m%d')}.log"
+
+# Check if files exist
+if not os.path.exists(registry_path):
+    raise FileNotFoundError(f"Registry file not found: {registry_path}")
+if not os.path.exists(person_path):
+    raise FileNotFoundError(f"Person file not found: {person_path}")
 
 # Load datasets
 registry_df = pd.read_csv(registry_path)
 person_df = pd.read_csv(person_path)
 
-# Filter registry data
+# Print column names to verify
+print("Registry DataFrame Columns:", registry_df.columns)
+print("Person DataFrame Columns:", person_df.columns)
+
+# Filter registry data (Remove behaviour filter since the column is not available)
 d1 = registry_df[(registry_df['icdo_top'].str.startswith('c53')) & 
-                 (registry_df['behaviour'].isin([1, 2, 3])) & 
                  (registry_df['reg_stat'] != 'review')]
 
 # Merge with person data
@@ -36,9 +39,10 @@ d1 = d1[(d1['diag_dte'] >= '1980-01-01') & (d1['diag_dte'] <= datetime.now().str
 
 # Save filtered data
 cvx = f"cvx{datetime.now().strftime('%Y%m%d')}"
-d1.to_csv(f"{output_path}{cvx}.csv", index=False, columns=[
+output_csv = f"{output_path}\\{cvx}.csv"
+d1.to_csv(output_csv, index=False, columns=[
     'acb_no', 'reg_stat', 'mal_no', 'phn', 'DoB', 'DoB_stat', 'diag_dte', 
-    'icdo_top', 'icdo_mor', 'icdo_grd', 'rha_diag', 'vit_stat', 'dth_dte', 'dth_stat'
+    'icdo_top', 'icdo_mor', 'icdo_grd', 'RHA_diag', 'vit_stat', 'dth_dte', 'dth_stat'
 ])
 
 # Check if a new form needs to be filled out
@@ -58,7 +62,6 @@ Results
 
 Criteria
   Site c53, any morphology
-  Behaviour /1 /2 /3
   Registry Status not in Review
   Female
   Alive or Dead
@@ -67,16 +70,18 @@ Criteria
   Cases diagnosed between 01JAN1980 and (approximately) {datetime.now().strftime('%Y-%m-%d')}
 """
 
-with open(f"{output_path}{cvx}.documentation.txt", 'w') as f:
+documentation_path = f"{output_path}\\{cvx}.documentation.txt"
+with open(documentation_path, 'w') as f:
     f.write(doc_content)
 
 # Check for errors in log file
 myerror = 0
-with open(log_path, 'r') as log_file:
-    for line in log_file:
-        if 'error' in line.lower():
-            myerror = 1
-            break
+if os.path.exists(log_path):
+    with open(log_path, 'r') as log_file:
+        for line in log_file:
+            if 'error' in line.lower():
+                myerror = 1
+                break
 
 # Send emails based on error status
 def send_email(subject, body, to_emails, attachments=[]):
@@ -90,8 +95,8 @@ def send_email(subject, body, to_emails, attachments=[]):
 
     for attachment in attachments:
         with open(attachment, 'rb') as f:
-            part = MIMEApplication(f.read(), Name=attachment)
-            part['Content-Disposition'] = f'attachment; filename="{attachment.split("/")[-1]}"'
+            part = MIMEApplication(f.read(), Name=os.path.basename(attachment))
+            part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment)}"'
             msg.attach(part)
 
     with smtplib.SMTP('localhost') as server:
@@ -99,11 +104,13 @@ def send_email(subject, body, to_emails, attachments=[]):
 
 if myerror == 0:
     # Create copy of documentation file for requester
-    with open(f"{output_path}{cvx}.documentation.txt", 'r') as src, open(f"/data/u01/sas/sasdata/Screening/S_R_dataUpdates/Cervix Update/{cvx}.documentation.txt", 'w') as dst:
+    destination_path = rf"/data/u01/sas/sasdata/Screening/S_R_dataUpdates/Cervix Update/{cvx}.documentation.txt"
+    with open(documentation_path, 'r') as src, open(destination_path, 'w') as dst:
         dst.write(src.read())
 
     # Save copy of data to SASCommon directory for requester to access
-    d1.to_csv(f"/data/u01/sas/sasdata/Screening/S_R_dataUpdates/Cervix Update/{cvx}.csv", index=False)
+    data_update_path = rf"/data/u01/sas/sasdata/Screening/S_R_dataUpdates/Cervix Update/{cvx}.csv"
+    d1.to_csv(data_update_path, index=False)
 
     # Send log file email
     send_email(
@@ -144,8 +151,3 @@ else:
         to_emails=["angela.eckstrand@albertahealthservices.ca", "tuyet.thieu@albertahealthservices.ca"],
         attachments=[log_path]
     )
-
-
-
-
-
