@@ -1,11 +1,14 @@
-import os, logging
+import os
+import logging
 from utility import Utility
 from handler.xmlLoadHandler import xmlLoadHandler
 from repository import Repository
-#from temp import Temp
+from lxml import etree
+import cx_Oracle
 
 # input data files 
 # - place .xml files (or .zip containing .xml) in in $cwd\data
+
 class App:
     def __init__(self):  
         self._util = Utility()
@@ -17,6 +20,27 @@ class App:
             self.Config()
             Repository().Configure()    # create local db
             xmlLoadHandler().Process()  # read CSV files and save them to local db
+            
+            # Validate XML against XSD
+            xml_path = 'SASMigration\NAACCR_XML_Parse\naaccr-dictionary-230 (1).xml'
+            xsd_path = 'SASMigration\NAACCR_XML_Parse\naaccr_data_1.6 (1).xsd'
+            is_valid, error_log = self.validate_xml(xml_path, xsd_path)
+            if is_valid:
+                logging.info("The XML file is valid.")
+            else:
+                logging.error("The XML file is invalid.")
+                for error in error_log:
+                    logging.error(error.message)
+
+            # Connect to Oracle database and perform query
+            username = 'your_username'
+            password = 'your_password'
+            dsn = 'your_dsn'
+            connection = self.connect_to_oracle(username, password, dsn)
+            query = 'SELECT * FROM your_table'
+            self.query_oracle(connection, query)
+            connection.close()
+
             Repository().ExportToTabDelimitedText() # optional
             logging.info('*** Stop ***')
         except:
@@ -38,6 +62,30 @@ class App:
             with zipfile.ZipFile(os.path.join(path_to_zip_file, filename), 'r') as zip_ref:
                 zip_ref.extractall(path_to_zip_file)
             os.rename(os.path.join(path_to_zip_file, filename), os.path.join(processed_dir, filename + ".unzipped"))
+
+    def validate_xml(self, xml_path, xsd_path):
+        with open(xsd_path, 'r') as xsd_file:
+            xsd_content = xsd_file.read()
+        xsd_doc = etree.XML(xsd_content)
+        xsd_schema = etree.XMLSchema(xsd_doc)
+
+        with open(xml_path, 'r') as xml_file:
+            xml_content = xml_file.read()
+        xml_doc = etree.XML(xml_content)
+
+        is_valid = xsd_schema.validate(xml_doc)
+        return is_valid, xsd_schema.error_log
+
+    def connect_to_oracle(self, username, password, dsn):
+        connection = cx_Oracle.connect(username, password, dsn)
+        return connection
+
+    def query_oracle(self, connection, query):
+        cursor = connection.cursor()
+        cursor.execute(query)
+        for row in cursor:
+            logging.info(row)
+        cursor.close()
 
 if __name__ == "__main__":
     app = App()
