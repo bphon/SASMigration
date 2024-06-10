@@ -4,9 +4,14 @@ import sqlite3
 import glob
 import csv
 import xml.etree.ElementTree as ET
+from lxml import etree
 from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
 from utility import Utility
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 
 class xmlLoadHandler:
 
@@ -17,6 +22,7 @@ class xmlLoadHandler:
         self._tumors = []
         self._fieldmapping = fieldMapping
         self._columnmapping = columnMapping
+        self._xsd_path = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "naaccr_data_1.6.xsd")  # Update with the correct path
 
     def Process(self):
         # Process XML files
@@ -44,6 +50,12 @@ class xmlLoadHandler:
             xml_data = self.generate_xml()
             self.save_xml(xml_data, filepath)
             self.MoveFile(filepath)
+
+            # Validate XML
+            if self.validate_xml(xml_data):
+                self.send_email("XML Validation Successful", "The XML file has been successfully validated and processed.", ["client@example.com"], [filepath])
+            else:
+                self.send_email("XML Validation Failed", "The XML file failed validation.", ["acr_analyst@example.com"], [filepath])
 
     def ParseHeaderFields(self, root):
         hi = HeaderInfo()
@@ -99,6 +111,29 @@ class xmlLoadHandler:
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(xml_data)
         logging.info(f"Saved XML to {output_path}")
+
+    def validate_xml(self, xml_data):
+        schema = etree.XMLSchema(file=self._xsd_path)
+        xml_doc = etree.fromstring(xml_data.encode('utf-8'))
+        return schema.validate(xml_doc)
+
+    def send_email(self, subject, body, to_emails, attachments=[]):
+        from_email = "you@example.com"
+        msg = MIMEMultipart()
+        msg['From'] = from_email
+        msg['To'] = ", ".join(to_emails)
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(body, 'plain'))
+
+        for attachment in attachments:
+            with open(attachment, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(attachment))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment)}"'
+                msg.attach(part)
+
+        with smtplib.SMTP('localhost') as server:
+            server.sendmail(from_email, to_emails, msg.as_string())
 
     def SaveTumors(self):
         qty = 0

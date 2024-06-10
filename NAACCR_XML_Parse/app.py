@@ -10,7 +10,7 @@ import cx_Oracle
 # - place .xml files (or .zip containing .xml) in in $cwd\data
 
 class App:
-    def __init__(self):  
+    def __init__(self):
         self._util = Utility()
         self._util.ConfigureLogging()
 
@@ -22,8 +22,8 @@ class App:
             xmlLoadHandler().Process()  # read CSV files and save them to local db
             
             # Validate XML against XSD
-            xml_path = 'SASMigration\NAACCR_XML_Parse\naaccr-dictionary-230 (1).xml'
-            xsd_path = 'SASMigration\NAACCR_XML_Parse\naaccr_data_1.6 (1).xsd'
+            xml_path = 'SASMigration\\NAACCR_XML_Parse\\naaccr-dictionary-230.xml'
+            xsd_path = 'SASMigration\\NAACCR_XML_Parse\\naaccr_data_1.6.xsd'
             is_valid, error_log = self.validate_xml(xml_path, xsd_path)
             if is_valid:
                 logging.info("The XML file is valid.")
@@ -38,8 +38,20 @@ class App:
             dsn = 'your_dsn'
             connection = self.connect_to_oracle(username, password, dsn)
             query = 'SELECT * FROM your_table'
-            self.query_oracle(connection, query)
+            xml_data = self.query_oracle_and_generate_xml(connection, query)
             connection.close()
+
+            # Save the generated XML data to a file
+            self.save_xml(xml_data, "oracle_output.xml")
+
+            # Validate the generated XML data against the XSD schema
+            is_valid, error_log = self.validate_xml("oracle_output.xml", xsd_path)
+            if is_valid:
+                logging.info("The generated XML file from Oracle data is valid.")
+            else:
+                logging.error("The generated XML file from Oracle data is invalid.")
+                for error in error_log:
+                    logging.error(error.message)
 
             Repository().ExportToTabDelimitedText() # optional
             logging.info('*** Stop ***')
@@ -80,12 +92,28 @@ class App:
         connection = cx_Oracle.connect(username, password, dsn)
         return connection
 
-    def query_oracle(self, connection, query):
+    def query_oracle_and_generate_xml(self, connection, query):
         cursor = connection.cursor()
         cursor.execute(query)
-        for row in cursor:
-            logging.info(row)
+        rows = cursor.fetchall()
         cursor.close()
+
+        root = etree.Element("NaaccrData", xmlns="http://naaccr.org/naaccrxml")
+        for row in rows:
+            patient_element = etree.SubElement(root, "Patient")
+            tumor_element = etree.SubElement(patient_element, "Tumor")
+            for idx, value in enumerate(row):
+                item_element = etree.SubElement(tumor_element, "Item", naaccrId=f"Field{idx+1}")
+                item_element.text = str(value)
+
+        xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+        return xml_data
+
+    def save_xml(self, xml_data, filename):
+        output_path = os.path.join(os.getcwd(), filename)
+        with open(output_path, 'wb') as file:
+            file.write(xml_data)
+        logging.info(f"Saved XML to {output_path}")
 
 if __name__ == "__main__":
     app = App()
