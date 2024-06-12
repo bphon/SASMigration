@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<NaaccrData xmlns="http://naaccr.org/naaccrxml" baseDictionaryUri="http://naaccr.org/naaccrxml/naaccr-dictionary-230.xml" recordType="I" specificationVersion="1.6">
+  <Patient>
+    <Tumor>
+      <Item naaccrId="Field1">Sample Data</Item>
+    </Tumor>
+  </Patient>
+</NaaccrData>

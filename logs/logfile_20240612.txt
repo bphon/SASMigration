@@ -1,0 +1,9 @@
+2024-06-12 11:21:48,041 *** Start ***
+2024-06-12 11:21:48,049 XML path: G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\naaccr-dictionary-230.xml
+2024-06-12 11:21:48,049 XSD path: G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\naaccr_data_1.6.xsd
+2024-06-12 11:21:48,049 Files in directory 'G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse': ['app.py', 'data', 'handler', 'model', 'naaccr-dictionary-230.xml', 'naaccr_data_1.6.xsd', 'README.md', 'repository.py', 'utility.py', '__pycache__']
+2024-06-12 11:21:48,053 The XML file is invalid.
+2024-06-12 11:21:48,053 Element '{http://naaccr.org/naaccrxml}NaaccrDictionary': No matching global declaration available for the validation root.
+2024-06-12 11:21:48,054 Saved XML to G:\OneDrive\Desktop\AHS Work\SASMigration\oracle_output.xml
+2024-06-12 11:21:48,060 The generated XML file from Oracle data is valid.
+2024-06-12 11:21:48,505 *** Stop ***
