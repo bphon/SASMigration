@@ -7,11 +7,6 @@ import xml.etree.ElementTree as ET
 from lxml import etree
 from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
-from utility import Utility
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
 
 class xmlLoadHandler:
 
@@ -19,32 +14,32 @@ class xmlLoadHandler:
         self._data_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data")
         self._processed_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data", "processed")
         os.makedirs(self._processed_dir, exist_ok=True)
-        self._tumors = []
+        self._patients = []
         self._fieldmapping = fieldMapping
         self._columnmapping = columnMapping
-        self._xsd_path = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "naaccr_data_1.6.xsd")  # Update with the correct path
+        self._xsd_path = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "naaccr_data_1.6.xsd")
 
     def Process(self):
         # Process XML files
         xml_files = glob.glob(os.path.join(self._data_dir, "*.XML"))
         xml_files.sort(key=os.path.getmtime)
         for filepath in xml_files:
-            self._tumors.clear()
+            self._patients.clear()
             logging.info(f"[processing XML {filepath}]")
             tree = ET.parse(filepath)
             root = tree.getroot()
             hi = self.ParseHeaderFields(root)
             logging.info(f"- parsing XML")
-            self.ParseTumors(root, hi)
-            logging.info(f"- saving tumors")
-            self.SaveTumors()
+            self.ParsePatients(root, hi)
+            logging.info(f"- saving patients and tumors")
+            self.SavePatients()
             self.MoveFile(filepath)
         
         # Process CSV files
         csv_files = glob.glob(os.path.join(self._data_dir, "*.csv"))
         csv_files.sort(key=os.path.getmtime)
         for filepath in csv_files:
-            self._tumors.clear()
+            self._patients.clear()
             logging.info(f"[processing CSV {filepath}]")
             self.ParseCsv(filepath)
             xml_data = self.generate_xml()
@@ -53,9 +48,9 @@ class xmlLoadHandler:
 
             # Validate XML
             if self.validate_xml(xml_data):
-                self.send_email("XML Validation Successful", "The XML file has been successfully validated and processed.", ["client@example.com"], [filepath])
+                logging.info("XML Validation Successful")
             else:
-                self.send_email("XML Validation Failed", "The XML file failed validation.", ["acr_analyst@example.com"], [filepath])
+                logging.error("XML Validation Failed")
 
     def ParseHeaderFields(self, root):
         hi = HeaderInfo()
@@ -64,21 +59,23 @@ class xmlLoadHandler:
             setattr(hi, node.attrib.get("naaccrId"), node.text)
         return hi
 
-    def ParseTumors(self, root, headerInfo):
+    def ParsePatients(self, root, headerInfo):
         patients = [x for x in root if x.tag == "{http://naaccr.org/naaccrxml}Patient"]
         for patient in patients:
+            patient_data = {node.attrib.get("naaccrId"): node.text.strip() if node.text else "" for node in patient if node.tag == "{http://naaccr.org/naaccrxml}Item"}
             tumors = [x for x in patient if x.tag == "{http://naaccr.org/naaccrxml}Tumor"]
+            tumor_list = []
             for tumor in tumors:
                 ti = TumorItem()
                 for k, v in headerInfo.__dict__.items():
                     setattr(ti, k, v.strip() if v else "")
+                for k, v in patient_data.items():
+                    setattr(ti, k, v)
                 nodes = [x for x in tumor if x.tag == "{http://naaccr.org/naaccrxml}Item"]
                 for node in nodes:
                     setattr(ti, node.attrib.get("naaccrId"), node.text.strip() if node.text else "")
-                nodes = [x for x in patient if x.tag == "{http://naaccr.org/naaccrxml}Item"]
-                for node in nodes:
-                    setattr(ti, node.attrib.get("naaccrId"), node.text.strip() if node.text else "")
-                self._tumors.append(ti)
+                tumor_list.append(ti)
+            self._patients.append((patient_data, tumor_list))
 
     def ParseCsv(self, filepath):
         with open(filepath, mode='r', newline='', encoding='utf-8') as file:
@@ -88,20 +85,25 @@ class xmlLoadHandler:
                 for field, column in self._fieldmapping.items():
                     value = row.get(column, '').strip()
                     setattr(ti, field, value)
-                self._tumors.append(ti)
-        logging.info(f"Parsed {len(self._tumors)} tumors from CSV {filepath}")
+                self._patients.append((None, [ti]))
+        logging.info(f"Parsed {len(self._patients)} patients from CSV {filepath}")
 
     def generate_xml(self):
         root = ET.Element("NaaccrData", xmlns="http://naaccr.org/naaccrxml")
         
-        for tumor_data in self._tumors:
+        for patient_data, tumors in self._patients:
             patient_element = ET.SubElement(root, "Patient")
-            tumor_element = ET.SubElement(patient_element, "Tumor")
-            for field_id, value in vars(tumor_data).items():
-                item_element = ET.SubElement(tumor_element, "Item", naaccrId=field_id)
-                item_element.text = value
+            if patient_data:
+                for field_id, value in patient_data.items():
+                    item_element = ET.SubElement(patient_element, "Item", naaccrId=field_id)
+                    item_element.text = value
+            for tumor_data in tumors:
+                tumor_element = ET.SubElement(patient_element, "Tumor")
+                for field_id, value in vars(tumor_data).items():
+                    item_element = ET.SubElement(tumor_element, "Item", naaccrId=field_id)
+                    item_element.text = value
 
-        logging.info("Generated XML content from CSV data")
+        logging.info("Generated XML content from data")
         return ET.tostring(root, encoding='utf-8', method='xml').decode('utf-8')
 
     def save_xml(self, xml_data, filepath):
@@ -117,45 +119,32 @@ class xmlLoadHandler:
         xml_doc = etree.fromstring(xml_data.encode('utf-8'))
         return schema.validate(xml_doc)
 
-    def send_email(self, subject, body, to_emails, attachments=[]):
-        from_email = "you@example.com"
-        msg = MIMEMultipart()
-        msg['From'] = from_email
-        msg['To'] = ", ".join(to_emails)
-        msg['Subject'] = subject
-
-        msg.attach(MIMEText(body, 'plain'))
-
-        for attachment in attachments:
-            with open(attachment, 'rb') as f:
-                part = MIMEApplication(f.read(), Name=os.path.basename(attachment))
-                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment)}"'
-                msg.attach(part)
-
-        with smtplib.SMTP('localhost') as server:
-            server.sendmail(from_email, to_emails, msg.as_string())
-
-    def SaveTumors(self):
+    def SavePatients(self):
         qty = 0
         sql, keys = self.GenerateInsertSQL()
         conn = sqlite3.connect('naaccr_data.db')
         cursor = conn.cursor()
-        for tumor in self._tumors:
-            if self.MostRecentTumor(conn, tumor):
-                values = []
-                for key in keys:
-                    if hasattr(tumor, key):
-                        attribute = getattr(tumor, key)
-                        if not self.MaxLength(key, attribute):
-                            attribute = None
-                        values.append(attribute)
-                    else:
-                        values.append(None)
-                self.DeleteTumor(conn, tumor)
-                cursor.execute(sql, values)
-                conn.commit()
-                qty += 1
+        for patient_data, tumors in self._patients:
+            for tumor in tumors:
+                if self.MostRecentTumor(conn, tumor):
+                    values = []
+                    for key in keys:
+                        if hasattr(tumor, key):
+                            attribute = getattr(tumor, key)
+                            if not self.MaxLength(key, attribute):
+                                attribute = None
+                            values.append(attribute)
+                        else:
+                            values.append(None)
+                    self.DeleteTumor(conn, tumor)
+                    cursor.execute(sql, values)
+                    conn.commit()
+                    qty += 1
         logging.info(f"[number of XML/CSV items saved]: {qty}")
+
+    def SaveTumors(self):
+        # Implementation for saving tumor data if separate logic is required
+        pass
 
     def MostRecentTumor(self, conn, tumor):
         params = (getattr(tumor,"medicalRecordNumber", getattr(tumor,"patientIdNumber", "")), 
