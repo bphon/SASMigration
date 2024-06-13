@@ -9,22 +9,24 @@ from model.tumorItem import HeaderInfo, TumorItem
 from model.mapping import fieldMapping, columnMapping
 
 class xmlLoadHandler:
-
     def __init__(self):
-        # Initialize directories and mappings
-        self._data_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data")
-        self._processed_dir = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "data", "processed")
+        # Correct the paths to match your directory structure
+        self._data_dir = os.path.abspath(os.path.join(os.getcwd(), "NAACCR_XML_Parse", "data"))
+        self._processed_dir = os.path.join(self._data_dir, "processed")
         os.makedirs(self._processed_dir, exist_ok=True)  # Create the processed directory if it doesn't exist
         self._patients = []  # List to store patient data
         self._fieldmapping = fieldMapping  # Mapping of fields from the model
         self._columnmapping = columnMapping  # Mapping of columns from the model
-        self._xsd_path = os.path.join(os.getcwd(), "SASMigration", "NAACCR_XML_Parse", "naaccr_data_1.6.xsd")  # Path to the XSD file for XML validation
+        self._xsd_path = os.path.abspath(os.path.join(os.getcwd(), "NAACCR_XML_Parse", "naaccr_data_1.6.xsd"))  # Path to the XSD file for XML validation
 
     def Process(self):
         # Process XML files in the data directory
-        xml_files = glob.glob(os.path.join(self._data_dir, "*.XML"))
+        xml_files = glob.glob(os.path.join(self._data_dir, "*.xml"))
         xml_files.sort(key=os.path.getmtime)  # Sort files by modification time
-        
+
+        logging.info(f"Data directory: {self._data_dir}")
+        logging.info(f"Found XML files: {xml_files}")
+
         for filepath in xml_files:
             self._patients.clear()  # Clear the patients list for each file
             logging.info(f"[processing XML {filepath}]")
@@ -44,7 +46,9 @@ class xmlLoadHandler:
         # Process CSV files in the data directory
         csv_files = glob.glob(os.path.join(self._data_dir, "*.csv"))
         csv_files.sort(key=os.path.getmtime)  # Sort files by modification time
-        
+
+        logging.info(f"Found CSV files: {csv_files}")
+
         for filepath in csv_files:
             self._patients.clear()  # Clear the patients list for each file
             logging.info(f"[processing CSV {filepath}]")
@@ -267,7 +271,6 @@ class xmlLoadHandler:
 
 if __name__ == "__main__":
     # Set up logging and start processing files
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     handler = xmlLoadHandler()
     handler.Process()
-

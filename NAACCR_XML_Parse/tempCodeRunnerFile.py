@@ -15,29 +15,47 @@ class App:
         try:
             logging.info('*** Start ***')
             self.Config()
-            Repository().Configure()  # create local db
-            handler = xmlLoadHandler()
-            handler.Process()  # read CSV files and save them to local db
+            Repository().Configure()    # create local db
+            xmlLoadHandler().Process()  # read CSV files and save them to local db
+            
+            # Validate XML against XSD
+            xml_path = os.path.abspath(r'G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\naaccr-dictionary-230.xml')
+            xsd_path = os.path.abspath(r'G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\naaccr_data_1.6.xsd')
 
-            logging.info("Generating sample XML data...")
-            # Generate and save sample XML data based on mock Oracle data
+            logging.debug(f"XML path: {xml_path}")
+            logging.debug(f"XSD path: {xsd_path}")
+
+            # List files in the directory to help debug
+            directory = os.path.dirname(xsd_path)
+            logging.debug(f"Files in directory '{directory}': {os.listdir(directory)}")
+
+            if not os.path.exists(xsd_path):
+                logging.error(f"XSD file not found: {xsd_path}")
+                return
+
+            is_valid, error_log = self.validate_xml(xml_path, xsd_path)
+            if is_valid:
+                logging.info("The XML file is valid.")
+            else:
+                logging.error("The XML file is invalid.")
+                for error in error_log:
+                    logging.error(error.message)
+
+            # Generate and save sample XML data
             xml_data = self.generate_sample_xml()
             self.save_xml(xml_data, "oracle_output.xml")
 
             # Validate the generated XML data against the XSD schema
-            xsd_path = os.path.abspath(os.path.join(os.getcwd(), "NAACCR_XML_Parse", "naaccr_data_1.6.xsd"))
             generated_xml_path = os.path.abspath("oracle_output.xml")
-
-            logging.info("Validating generated XML data...")
             is_valid, error_log = self.validate_xml(generated_xml_path, xsd_path)
             if is_valid:
                 logging.info("The generated XML file from Oracle data is valid.")
             else:
                 logging.error("The generated XML file from Oracle data is invalid.")
                 for error in error_log:
-                    logging.error(error)
+                    logging.error(error.message)
 
-            Repository().ExportToTabDelimitedText()  # optional
+            Repository().ExportToTabDelimitedText() # optional
             logging.info('*** Stop ***')
         except Exception as e:
             logging.exception("Exception occurred")
@@ -70,73 +88,40 @@ class App:
         is_valid = xsd_schema.validate(xml_doc)
         return is_valid, xsd_schema.error_log
 
-    def mock_oracle_data(self):
-        # Simulate the data retrieved from Oracle
-        return [
-            {
-                "patientIdNumber": "123456",
-                "medicalRecordNumber": "MRN001",
-                "tumorRecordNumber": "TRN001",
-                "primarySite": "C509",
-                "histology": "8500/3"
-            },
-            {
-                "patientIdNumber": "123457",
-                "medicalRecordNumber": "MRN002",
-                "tumorRecordNumber": "TRN002",
-                "primarySite": "C504",
-                "histology": "8520/3"
-            }
-        ]
+    # def connect_to_oracle(self, username, password, dsn):
+    #     connection = oracledb.connect(user=username, password=password, dsn=dsn)
+    #     return connection
+
+    # def query_oracle_and_generate_xml(self, connection, query):
+    #     cursor = connection.cursor()
+    #     cursor.execute(query)
+    #     rows = cursor.fetchall()
+    #     cursor.close()
+
+    #     root = etree.Element("NaaccrData", xmlns="http://naaccr.org/naaccrxml")
+    #     for row in rows:
+    #         patient_element = etree.SubElement(root, "Patient")
+    #         tumor_element = etree.SubElement(patient_element, "Tumor")
+    #         for idx, value in enumerate(row):
+    #             item_element = etree.SubElement(tumor_element, "Item", naaccrId=f"Field{idx+1}")
+    #             item_element.text = str(value)
+
+    #     xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+    #     return xml_data
 
     def generate_sample_xml(self):
-        root = etree.Element("NaaccrData",
+        root = etree.Element("NaaccrData", 
                              xmlns="http://naaccr.org/naaccrxml",
                              baseDictionaryUri="http://naaccr.org/naaccrxml/naaccr-dictionary-230.xml",
                              recordType="I",
                              specificationVersion="1.6")
-
-        # Use the mock Oracle data to generate XML
-        data = self.mock_oracle_data()
-
-        dictionary_path = os.path.abspath(os.path.join(os.getcwd(), "NAACCR_XML_Parse", "naaccr-dictionary-230.xml"))
-        patient_items, tumor_items = self.parse_naaccr_dictionary(dictionary_path)
-
-        for patient_data in data:
-            patient_element = etree.SubElement(root, "Patient")
-            
-            # Adding Patient Items
-            for naaccr_id, value in patient_data.items():
-                if naaccr_id in patient_items:
-                    item_element = etree.SubElement(patient_element, "Item", naaccrId=naaccr_id)
-                    item_element.text = value
-            
-            tumor_element = etree.SubElement(patient_element, "Tumor")
-
-            # Adding Tumor Items
-            for naaccr_id, value in patient_data.items():
-                if naaccr_id in tumor_items:
-                    item_element = etree.SubElement(tumor_element, "Item", naaccrId=naaccr_id)
-                    item_element.text = value
-
+        patient_element = etree.SubElement(root, "Patient")
+        tumor_element = etree.SubElement(patient_element, "Tumor")
+        item_element = etree.SubElement(tumor_element, "Item", naaccrId="Field1")
+        item_element.text = "Sample Data"
+        
         xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
         return xml_data
-    
-    def parse_naaccr_dictionary(self, dictionary_path):
-        tree = etree.parse(dictionary_path)
-        root = tree.getroot()
-        patient_items = set()
-        tumor_items = set()
-
-        for item in root.xpath("//ns:ItemDef", namespaces={'ns': 'http://naaccr.org/naaccrxml'}):
-            naaccr_id = item.get("naaccrId")
-            parent_tag = item.get("parentXmlElement")
-            if parent_tag == "Patient":
-                patient_items.add(naaccr_id)
-            elif parent_tag == "Tumor":
-                tumor_items.add(naaccr_id)
-        
-        return patient_items, tumor_items
 
     def save_xml(self, xml_data, filename):
         output_path = os.path.abspath(filename)

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<NaaccrData xmlns="http://naaccr.org/naaccrxml" baseDictionaryUri="http://naaccr.org/naaccrxml/naaccr-dictionary-230.xml" recordType="I" specificationVersion="1.6">
+  <Patient>
+    <Item naaccrId="patientIdNumber">123456</Item>
+    <Tumor>
+      <Item naaccrId="medicalRecordNumber">MRN001</Item>
+      <Item naaccrId="tumorRecordNumber">TRN001</Item>
+      <Item naaccrId="primarySite">C509</Item>
+    </Tumor>
+  </Patient>
+  <Patient>
+    <Item naaccrId="patientIdNumber">123457</Item>
+    <Tumor>
+      <Item naaccrId="medicalRecordNumber">MRN002</Item>
+      <Item naaccrId="tumorRecordNumber">TRN002</Item>
+      <Item naaccrId="primarySite">C504</Item>
+    </Tumor>
+  </Patient>
+</NaaccrData>
