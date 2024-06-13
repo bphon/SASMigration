@@ -28,15 +28,19 @@ class xmlLoadHandler:
         for filepath in xml_files:
             self._patients.clear()  # Clear the patients list for each file
             logging.info(f"[processing XML {filepath}]")
-            tree = ET.parse(filepath)  # Parse the XML file
-            root = tree.getroot()  # Get the root element of the XML
-            hi = self.ParseHeaderFields(root)  # Parse header fields from the XML root
-            logging.info(f"- parsing XML")
-            self.ParsePatients(root, hi)  # Parse patient and tumor data
-            logging.info(f"- saving patients and tumors")
-            self.SavePatients()  # Save patient and tumor data to the database
-            self.MoveFile(filepath)  # Move the processed file to the processed directory
-        
+            try:
+                tree = ET.parse(filepath)  # Parse the XML file
+                root = tree.getroot()  # Get the root element of the XML
+                hi = self.ParseHeaderFields(root)  # Parse header fields from the XML root
+                logging.info(f"- parsing XML")
+                self.ParsePatients(root, hi)  # Parse patient and tumor data
+                logging.info(f"- saving patients and tumors")
+                self.SavePatients()  # Save patient and tumor data to the database
+                self.MoveFile(filepath)  # Move the processed file to the processed directory
+            except ET.ParseError as e:
+                logging.error(f"Error parsing XML file {filepath}: {e}")
+                self.MoveFile(filepath, error=True)  # Move file to a separate directory for errors
+
         # Process CSV files in the data directory
         csv_files = glob.glob(os.path.join(self._data_dir, "*.csv"))
         csv_files.sort(key=os.path.getmtime)  # Sort files by modification time
@@ -174,7 +178,7 @@ class xmlLoadHandler:
                         else:
                             values.append(None)
                     
-                    self.DeleteTumor(conn, tumor)  # Delete the old tumor record
+                    self.DeleteTumor(conn, tumor)  # Delete the old tumor record if it exists
                     cursor.execute(sql, values)  # Insert the new tumor record
                     conn.commit()  # Commit the transaction
                     qty += 1  # Increment the counter
@@ -187,12 +191,18 @@ class xmlLoadHandler:
 
     def MostRecentTumor(self, conn, tumor):
         # Check if the tumor record is the most recent in the database
-        params = (getattr(tumor,"medicalRecordNumber", getattr(tumor,"patientIdNumber", "")), 
-            getattr(tumor, "tumorRecordNumber"), getattr(tumor, "registryId"), getattr(tumor, "dateCaseReportExported", getattr(tumor,"dateCaseLastChanged", "")))
+        params = (
+            getattr(tumor, "medicalRecordNumber", getattr(tumor, "patientIdNumber", "")),
+            getattr(tumor, "tumorRecordNumber"), 
+            getattr(tumor, "registryId"), 
+            getattr(tumor, "dateCaseReportExported", getattr(tumor, "dateCaseLastChanged", ""))
+        )
         
-        sql = """select * from NAACCR_DATA 
-            where MEDICAL_RECORD_NUMBER_N2300 = ? and TUMOR_RECORD_NUMBER_N60 = ? and REGISTRY_ID_N40 = ?
-            and DATE_CASE_REPORT_EXPORT_N2110 > ?"""
+        sql = """SELECT * FROM NAACCR_DATA 
+                 WHERE MEDICAL_RECORD_NUMBER_N2300 = ? 
+                   AND TUMOR_RECORD_NUMBER_N60 = ? 
+                   AND REGISTRY_ID_N40 = ?
+                   AND DATE_CASE_REPORT_EXPORT_N2110 > ?"""
         
         cmd = conn.cursor()  # Create a database cursor
         cmd.execute(sql, params)  # Execute the query with parameters
@@ -202,11 +212,16 @@ class xmlLoadHandler:
 
     def DeleteTumor(self, conn, tumor):
         # Delete an old tumor record from the database
-        params = (getattr(tumor,"medicalRecordNumber", getattr(tumor,"patientIdNumber", "")), 
-                  getattr(tumor, "tumorRecordNumber"), getattr(tumor, "registryId"))
+        params = (
+            getattr(tumor, "medicalRecordNumber", getattr(tumor, "patientIdNumber", "")),
+            getattr(tumor, "tumorRecordNumber"), 
+            getattr(tumor, "registryId")
+        )
         
-        sql = """delete from NAACCR_DATA 
-            where MEDICAL_RECORD_NUMBER_N2300 = ? and TUMOR_RECORD_NUMBER_N60 = ? and REGISTRY_ID_N40 = ?"""
+        sql = """DELETE FROM NAACCR_DATA 
+                 WHERE MEDICAL_RECORD_NUMBER_N2300 = ? 
+                   AND TUMOR_RECORD_NUMBER_N60 = ? 
+                   AND REGISTRY_ID_N40 = ?"""
         
         cmd = conn.cursor()  # Create a database cursor
         cmd.execute(sql, params)  # Execute the delete query with parameters
@@ -227,15 +242,17 @@ class xmlLoadHandler:
                 fields1 = fields1 + ", " + self._fieldmapping[key]
                 fields2 = fields2 + ", ?"
         
-        sql = f"insert into NAACCR_DATA ({fields1}) values ({fields2})"  # Create the SQL insert statement
+        sql = f"INSERT INTO NAACCR_DATA ({fields1}) VALUES ({fields2})"  # Create the SQL insert statement
         return (sql, keys)
 
-    def MoveFile(self, filepath):
-        # Move the processed file to the processed directory
-        if not os.path.exists(self._processed_dir):
-            os.makedirs(self._processed_dir)  # Create the processed directory if it doesn't exist
+    def MoveFile(self, filepath, error=False):
+        # Move the processed file to the processed directory or an error directory if parsing failed
+        target_dir = self._processed_dir
+        if error:
+            target_dir = os.path.join(self._processed_dir, "error")
+            os.makedirs(target_dir, exist_ok=True)
         
-        os.rename(filepath, os.path.join(self._processed_dir, os.path.basename(filepath)))  # Move the file
+        os.rename(filepath, os.path.join(target_dir, os.path.basename(filepath)))  # Move the file
 
     def MaxLength(self, key, attribute):
         # Check if the attribute value exceeds the maximum length defined in the column mapping
@@ -243,7 +260,7 @@ class xmlLoadHandler:
         maxlen = self._columnmapping[dbfield]
         
         if len(attribute) > maxlen:
-            print(f"value too long - column: {key}, value: {attribute}, maxlen: {maxlen}")
+            logging.warning(f"value too long - column: {key}, value: {attribute}, maxlen: {maxlen}")
             return False
         
         return True
@@ -253,3 +270,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     handler = xmlLoadHandler()
     handler.Process()
+

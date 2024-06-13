@@ -109,20 +109,44 @@ class App:
     #     xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
     #     return xml_data
 
+    def mock_oracle_data(self):
+        # Simulate the data retrieved from Oracle
+        return [
+            {
+                "patientIdNumber": "123456",
+                "medicalRecordNumber": "MRN001",
+                "tumorRecordNumber": "TRN001",
+                "primarySite": "C509",
+                "histology": "8500/3"
+            },
+            {
+                "patientIdNumber": "123457",
+                "medicalRecordNumber": "MRN002",
+                "tumorRecordNumber": "TRN002",
+                "primarySite": "C504",
+                "histology": "8520/3"
+            }
+        ]
     def generate_sample_xml(self):
-        root = etree.Element("NaaccrData", 
+        root = etree.Element("NaaccrData",
                              xmlns="http://naaccr.org/naaccrxml",
                              baseDictionaryUri="http://naaccr.org/naaccrxml/naaccr-dictionary-230.xml",
                              recordType="I",
                              specificationVersion="1.6")
-        patient_element = etree.SubElement(root, "Patient")
-        tumor_element = etree.SubElement(patient_element, "Tumor")
-        item_element = etree.SubElement(tumor_element, "Item", naaccrId="Field1")
-        item_element.text = "Sample Data"
-        
+
+        # Use the mock Oracle data to generate XML
+        data = self.mock_oracle_data()
+
+        for patient_data in data:
+            patient_element = etree.SubElement(root, "Patient")
+            tumor_element = etree.SubElement(patient_element, "Tumor")
+
+            for naaccr_id, value in patient_data.items():
+                item_element = etree.SubElement(tumor_element, "Item", naaccrId=naaccr_id)
+                item_element.text = value
+
         xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
         return xml_data
-
     def save_xml(self, xml_data, filename):
         output_path = os.path.abspath(filename)
         with open(output_path, 'wb') as file:
