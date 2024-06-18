@@ -1,0 +1,14 @@
+2024-06-18 10:10:27,445 *** Start ***
+2024-06-18 10:10:27,453 Data directory: G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\data
+2024-06-18 10:10:27,453 Found XML files: ['G:\\OneDrive\\Desktop\\AHS Work\\SASMigration\\NAACCR_XML_Parse\\data\\TestCases_V230.xml']
+2024-06-18 10:10:27,453 [processing XML G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\data\TestCases_V230.xml]
+2024-06-18 10:10:27,534 - parsing XML
+2024-06-18 10:10:27,550 - saving patients and tumors
+2024-06-18 10:10:38,262 [number of XML/CSV items saved]: 50
+2024-06-18 10:10:38,263 Found CSV files: []
+2024-06-18 10:10:38,265 Generating sample XML data...
+2024-06-18 10:10:38,266 Dictionary path: G:\OneDrive\Desktop\AHS Work\SASMigration\NAACCR_XML_Parse\naaccr-dictionary-230.xml
+2024-06-18 10:10:38,302 Saved XML to G:\OneDrive\Desktop\AHS Work\SASMigration\oracle_output.xml
+2024-06-18 10:10:38,303 Validating generated XML data...
+2024-06-18 10:10:38,323 The generated XML file from Oracle data is valid.
+2024-06-18 10:10:39,923 *** Stop ***

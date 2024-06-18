@@ -1,19 +1,94 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <NaaccrData xmlns="http://naaccr.org/naaccrxml" baseDictionaryUri="http://naaccr.org/naaccrxml/naaccr-dictionary-230.xml" recordType="I" specificationVersion="1.6">
+  <Item naaccrId="registryType">1</Item>
+  <Item naaccrId="recordType">I</Item>
+  <Item naaccrId="naaccrRecordVersion">230</Item>
+  <Item naaccrId="registryId">0022004800</Item>
   <Patient>
-    <Item naaccrId="patientIdNumber">123456</Item>
+    <Item naaccrId="patientIdNumber">00100001</Item>
+    <Item naaccrId="birthplaceCountry">ZZU</Item>
+    <Item naaccrId="sex">2</Item>
+    <Item naaccrId="spanishHispanicOrigin">9</Item>
+    <Item naaccrId="dateOfBirth">19750102</Item>
+    <Item naaccrId="placeOfDeath">997</Item>
+    <Item naaccrId="raceCodingSysCurrent">6</Item>
+    <Item naaccrId="computedEthnicity">0</Item>
+    <Item naaccrId="vitalStatus">1</Item>
+    <Item naaccrId="race5">99</Item>
+    <Item naaccrId="raceCodingSysOriginal">9</Item>
+    <Item naaccrId="birthplace">999</Item>
+    <Item naaccrId="race1">99</Item>
+    <Item naaccrId="race2">99</Item>
+    <Item naaccrId="race3">99</Item>
+    <Item naaccrId="dateOfLastContact">20240401</Item>
+    <Item naaccrId="race4">99</Item>
+    <Item naaccrId="birthplaceState">ZZ</Item>
+    <Item naaccrId="causeOfDeath">0000</Item>
+    <Item naaccrId="icdRevisionNumber">0</Item>
     <Tumor>
-      <Item naaccrId="medicalRecordNumber">MRN001</Item>
-      <Item naaccrId="tumorRecordNumber">TRN001</Item>
-      <Item naaccrId="primarySite">C509</Item>
-    </Tumor>
-  </Patient>
-  <Patient>
-    <Item naaccrId="patientIdNumber">123457</Item>
-    <Tumor>
-      <Item naaccrId="medicalRecordNumber">MRN002</Item>
-      <Item naaccrId="tumorRecordNumber">TRN002</Item>
-      <Item naaccrId="primarySite">C504</Item>
+      <Item naaccrId="tumorRecordNumber">01</Item>
+      <Item naaccrId="primarySite">C505</Item>
+      <Item naaccrId="histologicTypeIcdO3">8500</Item>
+      <Item naaccrId="metsAtDxBrain">0</Item>
+      <Item naaccrId="lymphVascularInvasion">1</Item>
+      <Item naaccrId="ajccTnmClinN">cN2a</Item>
+      <Item naaccrId="regionalNodesPositive">03</Item>
+      <Item naaccrId="ajccTnmClinM">cM0</Item>
+      <Item naaccrId="siteCodingSysCurrent">5</Item>
+      <Item naaccrId="ajccTnmClinT">cT4a</Item>
+      <Item naaccrId="oncotypeDxRecurrenceScoreInvasiv">XX9</Item>
+      <Item naaccrId="morphCodingSysOriginl">7</Item>
+      <Item naaccrId="laterality">2</Item>
+      <Item naaccrId="primaryPayerAtDx">10</Item>
+      <Item naaccrId="rxSummHormone">99</Item>
+      <Item naaccrId="ambiguousTerminologyDx">0</Item>
+      <Item naaccrId="rxSummChemo">99</Item>
+      <Item naaccrId="addrAtDxState">AB</Item>
+      <Item naaccrId="icdO3ConversionFlag">0</Item>
+      <Item naaccrId="rxSummBrm">99</Item>
+      <Item naaccrId="gradeClinical">3</Item>
+      <Item naaccrId="her2OverallSummary">0</Item>
+      <Item naaccrId="siteCodingSysOriginal">5</Item>
+      <Item naaccrId="tnmEditionNumber">08</Item>
+      <Item naaccrId="ajccId">48.2</Item>
+      <Item naaccrId="typeOfReportingSource">1</Item>
+      <Item naaccrId="metsAtDxBone">0</Item>
+      <Item naaccrId="metsAtDxDistantLn">0</Item>
+      <Item naaccrId="schemaId">00480</Item>
+      <Item naaccrId="multiplicityCounter">01</Item>
+      <Item naaccrId="ajccTnmClinNSuffix">(f)</Item>
+      <Item naaccrId="ajccTnmClinStageGroup">3C</Item>
+      <Item naaccrId="addrAtDxPostalCode">T0O0O0</Item>
+      <Item naaccrId="metsAtDxLung">0</Item>
+      <Item naaccrId="countyAtDxGeocode2020">998</Item>
+      <Item naaccrId="countyAtDx">000</Item>
+      <Item naaccrId="ajccTnmPathStageGroup">3A</Item>
+      <Item naaccrId="estrogenReceptorSummary">0</Item>
+      <Item naaccrId="behaviorCodeIcdO3">3</Item>
+      <Item naaccrId="gradePathological">3</Item>
+      <Item naaccrId="reasonForNoSurgery">1</Item>
+      <Item naaccrId="multTumRptAsOnePrim">88</Item>
+      <Item naaccrId="ajccTnmPathT">pT2</Item>
+      <Item naaccrId="ageAtDiagnosis">087</Item>
+      <Item naaccrId="sequenceNumberCentral">00</Item>
+      <Item naaccrId="dateOfDiagnosis">20210102</Item>
+      <Item naaccrId="rxSummRadiation">9</Item>
+      <Item naaccrId="morphCodingSysCurrent">7</Item>
+      <Item naaccrId="regionalNodesExamined">18</Item>
+      <Item naaccrId="metsAtDxOther">0</Item>
+      <Item naaccrId="tumorSizeClinical">040</Item>
+      <Item naaccrId="rxSummSurgPrimSite">99</Item>
+      <Item naaccrId="followUpSourceCentral">29</Item>
+      <Item naaccrId="rxSummScopeRegLnSur">9</Item>
+      <Item naaccrId="followUpSource">8</Item>
+      <Item naaccrId="diagnosticConfirmation">1</Item>
+      <Item naaccrId="progesteroneRecepSummary">0</Item>
+      <Item naaccrId="tumorSizePathologic">043</Item>
+      <Item naaccrId="her2IshSummary">8</Item>
+      <Item naaccrId="ajccTnmPathM">cM0</Item>
+      <Item naaccrId="ajccTnmPathN">pN1a</Item>
+      <Item naaccrId="metsAtDxLiver">0</Item>
+      <Item naaccrId="rxSummOther">9</Item>
     </Tumor>
   </Patient>
 </NaaccrData>
