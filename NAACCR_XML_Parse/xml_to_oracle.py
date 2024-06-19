@@ -2,13 +2,14 @@
 """
 Created on Wed Jun 19 09:39:29 2024
 
-@author: user
+@author: Jerome Corpuz
 """
 import os
 import xml.etree.ElementTree as et
 import cx_Oracle
 import logging
 from utility import Utility  # Assuming Utility is in a file named utility.py
+#import the nesscesary parameters ds, user, and password for database connection 
 
 class xml_to_oracle:
     
@@ -18,10 +19,10 @@ class xml_to_oracle:
         self._util = Utility()
         self._util.ConfigureLogging()
     
-    def process(self, directory, dsn, user, password):
+    def process(self, dsn, user, password):
         try:
             logging.info('*** Start ***')
-
+            directory = os.path.join(os.getcwd(), 'nacccr_generated_xml')
             logging.info("Finding XML file...")
             xml_file = self.find_xml_file(directory)
             if not xml_file:
@@ -100,17 +101,7 @@ class xml_to_oracle:
 
     
 
-# Example usage
-directory = os.path.join(os.getcwd(), 'nacccr_generated_xml')
-dsn = "your_dsn"
-user = "your_username"
-password = "your_password"
-
-parser = xml_to_oracle()
-parser.process(directory, dsn, user, password)
-
-
 if __name__ == "__main__":
     # Run the application
-    app = save_to_oracle()
-    app.Process()
+    parser = xml_to_oracle()
+    parser.process()
