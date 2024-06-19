@@ -5,11 +5,15 @@ Created on Wed Jun 19 09:39:29 2024
 @author: Jerome Corpuz
 """
 import os
+import sys
 import xml.etree.ElementTree as et
-import cx_Oracle
+import oracledb
 import logging
-from utility import Utility  # Assuming Utility is in a file named utility.py
-#import the nesscesary parameters ds, user, and password for database connection 
+from utility import Utility  
+sys.path.append('H:/R_extras/')
+
+from configfile import *
+
 
 class xml_to_oracle:
     
@@ -19,7 +23,7 @@ class xml_to_oracle:
         self._util = Utility()
         self._util.ConfigureLogging()
     
-    def process(self, dsn, user, password):
+    def process(self, user, password, dsn):
         try:
             logging.info('*** Start ***')
             directory = os.path.join(os.getcwd(), 'nacccr_generated_xml')
@@ -40,6 +44,9 @@ class xml_to_oracle:
             logging.info('*** Stop ***')
         except Exception as e:
             logging.exception("Exception occurred during processing")
+
+
+
 
     def find_xml_file(self, directory):
         for file in os.listdir(directory):
@@ -81,7 +88,7 @@ class xml_to_oracle:
         return data
 
     def insert_data_to_db(self, data, dsn, user, password):
-        connection = cx_Oracle.connect(user=user, password=password, dsn=dsn)
+        connection = oracledb.connect(user, password, dsn)
         cursor = connection.cursor()
 
         # Insert data into the table
@@ -103,5 +110,4 @@ class xml_to_oracle:
 
 if __name__ == "__main__":
     # Run the application
-    parser = xml_to_oracle()
-    parser.process()
+      xml_to_oracle().process(f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", ORACLE_PASSWORD, ORACLE_TNS_NAME)
