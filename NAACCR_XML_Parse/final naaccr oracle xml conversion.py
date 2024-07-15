@@ -216,3 +216,7 @@ for patient_data in oracle_data:
 
 # Convert the XML tree to a string
 xml_data = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+
+def read_oracle_data(oracle_data):
+    oracle_data = oracle_data.to_dict('records')
+    return oracle_data
