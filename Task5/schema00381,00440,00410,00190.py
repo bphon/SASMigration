@@ -1,5 +1,4 @@
-# SCHEMA 00430 Gastrointestional Stromal Tumour (GIST)
-# THESE SCHEMAS USE GRADE AND AJCC ID WHEN DECIDING ON STAGE GROUP
+# THESE SCHEMAS INCLUDE GRADE WHEN DECIDING ON STAGE GROUP
 
 import pandas as pd
 from sqlalchemy import create_engine
@@ -8,12 +7,12 @@ from sqlalchemy import create_engine
 # For example, conn = create_engine('your_database_connection_string').connect()
 
 # Step 1: Import data from Excel
-sg_00430 = pd.read_excel("SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx", sheet_name="TNM_00430")
+grade = pd.read_excel("SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx", sheet_name="TNM_GRADE")
 
 # Step 2: Sort and remove duplicates
-sg_00430_sorted = sg_00430.drop_duplicates(subset=['schemaid', 't_value', 'n_value', 'm_value', 'descriptor', 'grade', 'ajccid'])
+grade_sorted = grade.drop_duplicates(subset=['schemaid', 't_value', 'n_value', 'm_value', 'descriptor', 'grade'])
 
-# Step 3: SQL Query to create the Invalid_00430 table
+# Step 3: SQL Query to create the Invalid_Stage_Grade table
 query = """
 SELECT DISTINCT
     a.acb_no,
@@ -56,7 +55,7 @@ SELECT DISTINCT
     a.psa_f,
     1 AS tnm_edit2000
 FROM Step1B_TNMedits a
-JOIN sg_00430_sorted b ON a.schema_id = b.schemaid
+JOIN grade_sorted b ON a.schema_id = b.schemaid
 WHERE
     (
         (b.descriptor IN ('c', 'cp') AND
@@ -72,7 +71,6 @@ WHERE
         (
             (b.grade = 'G' AND a.ajcc8_clinical_grade LIKE '%') OR a.ajcc8_clinical_grade LIKE b.grade
         ) AND 
-        (a.ajcc8_id = b.ajccid) AND 
         a.clin_stage != b.stage_group
     )
     OR 
@@ -90,7 +88,6 @@ WHERE
         (
             (b.grade = 'G' AND a.ajcc8_path_grade LIKE '%') OR a.ajcc8_path_grade LIKE b.grade
         ) AND 
-        (a.ajcc8_id = b.ajccid) AND 
         a.path_stage != b.stage_group
     )
     OR 
@@ -108,7 +105,6 @@ WHERE
         (
             (b.grade = 'G' AND a.ajcc8_posttherapy_grade LIKE '%') OR a.ajcc8_posttherapy_grade LIKE b.grade
         ) AND 
-        (a.ajcc8_id = b.ajccid) AND 
         a.post_stage != b.stage_group
     )
 )
@@ -116,7 +112,7 @@ ORDER BY a.schema_id
 """
 
 # Execute the query and store the result in a DataFrame
-Invalid_00430 = pd.read_sql_query(query, con=conn)
+Invalid_Stage_Grade = pd.read_sql_query(query, con=conn)
 
 # Display the DataFrame
-print(Invalid_00430)
+print(Invalid_Stage_Grade)
