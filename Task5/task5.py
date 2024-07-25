@@ -4,6 +4,7 @@ from sqlalchemy.sql import text
 import smtplib
 from email.message import EmailMessage
 import oracledb
+import os
 
 class TNMEdits:
     def __init__(self):
@@ -11,7 +12,22 @@ class TNMEdits:
         self.engine = None
 
     def load_data(self, file_path):
-        self.df = pd.read_csv(file_path)
+        if os.path.exists(file_path):
+            self.df = pd.read_csv(file_path)
+            print("Columns in the loaded DataFrame:", self.df.columns)
+        else:
+            print(f"File not found: {file_path}")
+
+    def check_required_columns(self):
+        required_columns = [
+            'ajcc8_path_t', 'ajcc8_path_n', 'ajcc8_path_m', 'ajcc8_path_stage',
+            'ajcc8_clinical_t', 'ajcc8_clinical_n', 'ajcc8_clinical_m', 'ajcc8_clinical_stage',
+            'ajcc8_postTherapy_t', 'ajcc8_postTherapy_n', 'ajcc8_postTherapy_m', 'ajcc8_postTherapy_stage',
+            'age_diag', 'PERIPHERAL_BLOOD_INVO', 'ajcc8_id', 'PSA'
+        ]
+        for column in required_columns:
+            if column not in self.df.columns:
+                raise KeyError(f"Missing required column: {column}")
 
     def load_sg_data(self, file_path, sheet_name):
         sg_data = pd.read_excel(file_path, sheet_name=sheet_name)
@@ -44,6 +60,20 @@ class TNMEdits:
 
     def format_PSA(self):
         self.df['PSA_f'] = self.df['PSA'].apply(lambda x: None if x in ['XXX.1', 'XXX.2', 'XXX.3', 'XXX.7', 'XXX.9'] else float(x))
+        
+    def invalid_stage_grade(self, sg_grade):
+        invalid_stage_grade = self.df.merge(
+            sg_grade,
+            how='inner',
+            left_on='schema_id',
+            right_on='schemaid'
+        ).query(
+            "(descriptor in ['c', 'cp'] and ((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and ((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and ((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and ((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and ((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and ((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and ((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and ((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and post_stage != stage_group)"
+        )
+        invalid_stage_grade['tnm_edit2000'] = 1
+        return invalid_stage_grade
 
     def invalid_sg_allschemas(self):
         query = """
@@ -588,7 +618,7 @@ class TNMEdits:
 
     def final_stagegroup_edits(self):
         # Assume `sg_grade` is loaded previously
-        sg_grade = self.load_sg_data('path_to_file', 'TNM_GRADE')
+        sg_grade = self.load_sg_data('SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
         invalid_stage_grade_df = self.invalid_stage_grade(sg_grade)
         
         # Combine with other invalid data (dummy placeholders for other schemas)
@@ -623,15 +653,92 @@ class TNMEdits:
     def notify_success_or_error(self, success_attachment, error_message):
         try:
             final_stagegroup_edits = self.final_stagegroup_edits()
-            self.export_to_excel(final_stagegroup_edits, 'path_to_output_file.xlsx', 'TNM Overall Stage Edits')
+            self.export_to_excel(final_stagegroup_edits, r'g:\OneDrive\Desktop\AHS Work\SASMigration\Task5\Task5.xlsx', 'TNM Overall Stage Edits')
             self.send_email("EMAIL_ADDRESS", "TNM Stage Group Edits - Data for Review", "Please find attached the Frequency regarding TNM Stage Group Edits for Cleanups.", [success_attachment])
         except Exception as e:
             self.send_email("EMAIL_ADDRESS", "TNM Stage Group Edits - Error with Data", f"There was an error: {str(e)}")
 
-# Usage example:
-tnm = TNMEdits()
-tnm.load_data('SASMigration\Task5\sampledata.csv')
-tnm.step1b_tnmedits()
-final_edits = tnm.final_stagegroup_edits()
-tnm.export_to_excel(final_edits, 'SASMigration\Task5.xlsx', 'TNM Overall Stage Edits')
-tnm.notify_success_or_error('SASMigration\Task5.xlsx', 'There was an error processing the TNM Stage Group Edits.')
+def main():
+    tnm = TNMEdits()
+    final_edits = None
+    invalid_sg_allschemas = None
+    invalid_sg_allschemas2 = None
+    invalid_stage_grade_df = None
+    invalid_00580 = None
+    invalid_00730 = None
+    invalid_00161 = None
+
+    while True:
+        print("\nMenu:")
+        print("1. Load data")
+        print("2. Perform Step1B TNM edits")
+        print("3. Generate final stage group edits")
+        print("4. Generate Invalid SG for all schemas")
+        print("5. Generate Invalid SG for all schemas 2")
+        print("6. Generate Invalid Stage Grade (00381, 00440, 00410, 00190)")
+        print("7. Generate Invalid Schema 00580")
+        print("8. Generate Invalid Schema 00730")
+        print("9. Generate Invalid Schema 00161")
+        print("10. Export to Excel")
+        print("11. Send email notification")
+        print("12. Exit")
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            file_path = input("Enter the path to the CSV file: ")
+            tnm.load_data(file_path)
+        elif choice == '2':
+            tnm.step1b_tnmedits()
+        elif choice == '3':
+            final_edits = tnm.final_stagegroup_edits()
+            print("Final stage group edits generated.")
+        elif choice == '4':
+            invalid_sg_allschemas = tnm.invalid_sg_allschemas()
+            print("Invalid SG for all schemas generated.")
+            print(invalid_sg_allschemas.head())
+        elif choice == '5':
+            invalid_sg_allschemas2 = tnm.invalid_sg_allschemas2()
+            print("Invalid SG for all schemas 2 generated.")
+            print(invalid_sg_allschemas2.head())
+        elif choice == '6':
+            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
+            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
+            invalid_stage_grade_df = tnm.invalid_stage_grade(sg_grade)
+            print("Invalid Stage Grade (00381, 00440, 00410, 00190) generated.")
+            print(invalid_stage_grade_df.head())
+        elif choice == '7':
+            sg_data_path = input("Enter the path to the Excel file with Schema 00580 data: ")
+            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00580')
+            invalid_00580 = tnm.invalid_schema_00580(sg_data)
+            print("Invalid Schema 00580 generated.")
+            print(invalid_00580.head())
+        elif choice == '8':
+            sg_data_path = input("Enter the path to the Excel file with Schema 00730 data: ")
+            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00730')
+            invalid_00730 = tnm.invalid_schema_00730(sg_data)
+            print("Invalid Schema 00730 generated.")
+            print(invalid_00730.head())
+        elif choice == '9':
+            sg_data_path = input("Enter the path to the Excel file with Schema 00161 data: ")
+            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00161')
+            invalid_00161 = tnm.invalid_schema_00161(sg_data)
+            print("Invalid Schema 00161 generated.")
+            print(invalid_00161.head())
+        elif choice == '10':
+            if final_edits is not None:
+                file_path = input("Enter the path to save the Excel file: ")
+                sheet_name = input("Enter the sheet name: ")
+                tnm.export_to_excel(final_edits, file_path, sheet_name)
+            else:
+                print("Generate final stage group edits first.")
+        elif choice == '11':
+            success_attachment = input("Enter the path to the frequency file: ")
+            error_message = input("Enter the error message: ")
+            tnm.notify_success_or_error(success_attachment, error_message)
+        elif choice == '12':
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+if __name__ == "__main__":
+    main()
