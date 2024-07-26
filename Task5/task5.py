@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.sql import text
 import smtplib
 from email.message import EmailMessage
@@ -10,8 +10,9 @@ class TNMEdits:
     def __init__(self):
         self.df = None
         self.engine = None
-        oracledb.init_oracle_client()
-        connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME)
+        # database connection if needed then remove the # from the next line
+        # oracledb.init_oracle_client()
+        # connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME)
 
     def load_data(self, file_path):
         if os.path.exists(file_path):
@@ -718,10 +719,11 @@ def main():
     invalid_stage_grade_df = None
     invalid_00580 = None
     invalid_00730 = None
-    invalid_00161 = None
+    invalid_00590 = None
+    invalid_00111 = None
+    invalid_00560 = None
     invalid_00430 = None
     invalid_00169 = None
-    invalid_00590 = None
     invalid_00480 = None
     invalid_00480_onc = None
     invalid_00381_00440_00410_00190 = None
@@ -740,20 +742,21 @@ def main():
         print("6. Generate Invalid Stage Grade (00381, 00440, 00410, 00190)")
         print("7. Generate Invalid Schema 00580")
         print("8. Generate Invalid Schema 00730")
-        print("9. Generate Invalid Schema 00161")
-        print("10. Generate Invalid Schema 00430")
-        print("11. Generate Invalid Schema 00169")
-        print("12. Generate Invalid Schema 00590")
-        print("13. Generate Invalid Schema 00480")
-        print("14. Generate Invalid Schema 00480 (Oncology)")
-        print("15. Generate Invalid Schema 00381, 00440, 00410, 00190")
-        print("16. Generate Invalid Schema 00170")
-        print("17. Generate Invalid Schema 00680")
-        print("18. Generate Invalid Schema 00161")
-        print("19. Generate Invalid Stage (TNM Only)")
-        print("20. Export to Excel")
-        print("21. Send email notification")
-        print("22. Exit")
+        print("9. Generate Invalid Schema 00111")
+        print("10. Generate Invalid Schema 00560")
+        print("11. Generate Invalid Schema 00161")
+        print("12. Generate Invalid Schema 00430")
+        print("13. Generate Invalid Schema 00169")
+        print("14. Generate Invalid Schema 00590")
+        print("15. Generate Invalid Schema 00480")
+        print("16. Generate Invalid Schema 00480 (Oncology)")
+        print("17. Generate Invalid Schema 00381, 00440, 00410, 00190")
+        print("18. Generate Invalid Schema 00170")
+        print("19. Generate Invalid Schema 00680")
+        print("20. Generate Invalid Stage (TNM Only)")
+        print("21. Export to Excel")
+        print("22. Send email notification")
+        print("23. Exit")
         choice = input("Enter your choice: ")
 
         if choice == '1':
@@ -791,83 +794,89 @@ def main():
             print("Invalid Schema 00730 generated.")
             print(invalid_00730.head())
         elif choice == '9':
+            sg_data_path = input("Enter the path to the Excel file with Schema 00111 data: ")
+            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00111')
+            invalid_00111 = tnm.invalid_schema_00111(sg_data)
+            print("Invalid Schema 00111 generated.")
+            print(invalid_00111.head())
+        elif choice == '10':
+            sg_data_path = input("Enter the path to the Excel file with Schema 00560 data: ")
+            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00560')
+            invalid_00560 = tnm.invalid_schema_00560(sg_data)
+            print("Invalid Schema 00560 generated.")
+            print(invalid_00560.head())
+        elif choice == '11':
             sg_data_path = input("Enter the path to the Excel file with Schema 00161 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00161')
             invalid_00161 = tnm.invalid_schema_00161(sg_data)
             print("Invalid Schema 00161 generated.")
             print(invalid_00161.head())
-        elif choice == '10':
+        elif choice == '12':
             sg_data_path = input("Enter the path to the Excel file with Schema 00430 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00430')
             invalid_00430 = tnm.invalid_schema_00430(sg_data)
             print("Invalid Schema 00430 generated.")
             print(invalid_00430.head())
-        elif choice == '11':
+        elif choice == '13':
             sg_data_path = input("Enter the path to the Excel file with Schema 00169 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00169')
             invalid_00169 = tnm.invalid_schema_00169(sg_data)
             print("Invalid Schema 00169 generated.")
             print(invalid_00169.head())
-        elif choice == '12':
+        elif choice == '14':
             sg_data_path = input("Enter the path to the Excel file with Schema 00590 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00590')
             invalid_00590 = tnm.invalid_schema_00590(sg_data)
             print("Invalid Schema 00590 generated.")
             print(invalid_00590.head())
-        elif choice == '13':
+        elif choice == '15':
             sg_data_path = input("Enter the path to the Excel file with Schema 00480 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00480')
             invalid_00480 = tnm.invalid_schema_00480(sg_data)
             print("Invalid Schema 00480 generated.")
             print(invalid_00480.head())
-        elif choice == '14':
+        elif choice == '16':
             sg_data_path = input("Enter the path to the Excel file with Schema 00480 (Oncology) data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00480_Oncology')
             invalid_00480_onc = tnm.invalid_schema_00480_onc(sg_data)
             print("Invalid Schema 00480 (Oncology) generated.")
             print(invalid_00480_onc.head())
-        elif choice == '15':
+        elif choice == '17':
             sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
             sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
             invalid_00381_00440_00410_00190 = tnm.invalid_schema_00381_00440_00410_00190(sg_grade)
             print("Invalid Schema 00381, 00440, 00410, 00190 generated.")
             print(invalid_00381_00440_00410_00190.head())
-        elif choice == '16':
+        elif choice == '18':
             sg_data_path = input("Enter the path to the Excel file with Schema 00170 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00170')
             invalid_00170 = tnm.invalid_schema_00170(sg_data)
             print("Invalid Schema 00170 generated.")
             print(invalid_00170.head())
-        elif choice == '17':
+        elif choice == '19':
             sg_data_path = input("Enter the path to the Excel file with Schema 00680 data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00680')
             invalid_00680 = tnm.invalid_schema_00680(sg_data)
             print("Invalid Schema 00680 generated.")
             print(invalid_00680.head())
-        elif choice == '18':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00161 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00161')
-            invalid_00161 = tnm.invalid_schema_00161(sg_data)
-            print("Invalid Schema 00161 generated.")
-            print(invalid_00161.head())
-        elif choice == '19':
+        elif choice == '20':
             sg_data_path = input("Enter the path to the Excel file with TNM Only data: ")
             sg_data = tnm.load_sg_data(sg_data_path, 'TNM_TNMonly')
             invalid_stage = tnm.invalid_stage(sg_data)
             print("Invalid Stage (TNM Only) generated.")
             print(invalid_stage.head())
-        elif choice == '20':
+        elif choice == '21':
             if final_edits is not None:
                 file_path = input("Enter the path to save the Excel file: ")
                 sheet_name = input("Enter the sheet name: ")
                 tnm.export_to_excel(final_edits, file_path, sheet_name)
             else:
                 print("Generate final stage group edits first.")
-        elif choice == '21':
+        elif choice == '22':
             success_attachment = input("Enter the path to the frequency file: ")
             error_message = input("Enter the error message: ")
             tnm.notify_success_or_error(success_attachment, error_message)
-        elif choice == '22':
+        elif choice == '23':
             break
         else:
             print("Invalid choice. Please try again.")
