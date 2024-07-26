@@ -50,48 +50,30 @@ class TNMEdits:
 
         missing_columns = [col for col in required_columns if col not in self.df.columns]
         if missing_columns:
-            print(f"Warning: Missing required columns: {', '.join(missing_columns)}")
+            raise KeyError(f"Missing required columns: {', '.join(missing_columns)}")
 
-        if 'ajcc8_path_t' in self.df.columns:
-            self.df['path_t'] = self.df['ajcc8_path_t'].str[1:].str.strip()
-        if 'ajcc8_path_n' in self.df.columns:
-            self.df['path_n'] = self.df['ajcc8_path_n'].str[1:].str.strip()
-        if 'ajcc8_path_m' in self.df.columns:
-            self.df['path_m'] = self.df['ajcc8_path_m'].str[1:].str.strip()
-        if 'ajcc8_path_stage' in self.df.columns:
-            self.df['path_stage'] = self.df['ajcc8_path_stage'].str.strip()
+        self.df['path_t'] = self.df['ajcc8_path_t'].str[1:].str.strip()
+        self.df['path_n'] = self.df['ajcc8_path_n'].str[1:].str.strip()
+        self.df['path_m'] = self.df['ajcc8_path_m'].str[1:].str.strip()
+        self.df['path_stage'] = self.df['ajcc8_path_stage'].str.strip()
 
-        if 'ajcc8_clinical_t' in self.df.columns:
-            self.df['clin_t'] = self.df['ajcc8_clinical_t'].str[1:].str.strip()
-        if 'ajcc8_clinical_n' in self.df.columns:
-            self.df['clin_n'] = self.df['ajcc8_clinical_n'].str[1:].str.strip()
-        if 'ajcc8_clinical_m' in self.df.columns:
-            self.df['clin_m'] = self.df['ajcc8_clinical_m'].str[1:].str.strip()
-        if 'ajcc8_clinical_stage' in self.df.columns:
-            self.df['clin_stage'] = self.df['ajcc8_clinical_stage'].str.strip()
+        self.df['clin_t'] = self.df['ajcc8_clinical_t'].str[1:].str.strip()
+        self.df['clin_n'] = self.df['ajcc8_clinical_n'].str[1:].str.strip()
+        self.df['clin_m'] = self.df['ajcc8_clinical_m'].str[1:].str.strip()
+        self.df['clin_stage'] = self.df['ajcc8_clinical_stage'].str.strip()
 
-        if 'ajcc8_postTherapy_t' in self.df.columns:
-            self.df['post_t'] = self.df['ajcc8_postTherapy_t'].str[2:].str.strip()
-        if 'ajcc8_postTherapy_n' in self.df.columns:
-            self.df['post_n'] = self.df['ajcc8_postTherapy_n'].str[2:].str.strip()
-        if 'ajcc8_postTherapy_m' in self.df.columns:
-            self.df['post_m'] = self.df['ajcc8_postTherapy_m'].str[1:].str.strip()
-        if 'ajcc8_postTherapy_stage' in self.df.columns:
-            self.df['post_stage'] = self.df['ajcc8_postTherapy_stage'].str.strip()
+        self.df['post_t'] = self.df['ajcc8_postTherapy_t'].str[2:].str.strip()
+        self.df['post_n'] = self.df['ajcc8_postTherapy_n'].str[2:].str.strip()
+        self.df['post_m'] = self.df['ajcc8_postTherapy_m'].str[1:].str.strip()
+        self.df['post_stage'] = self.df['ajcc8_postTherapy_stage'].str.strip()
 
-        if 'age_diag' in self.df.columns:
-            self.df['agegrp'] = self.df['age_diag'].apply(lambda x: "<55" if x < 55 else ">=55")
+        self.df['agegrp'] = self.df['age_diag'].apply(lambda x: "<55" if x < 55 else ">=55")
 
-        if 'PERIPHERAL_BLOOD_INVO' in self.df.columns:
-            self.df['PBLOODINVO'] = self.df['PERIPHERAL_BLOOD_INVO'].str.strip().replace('.', '')
+        self.df['PBLOODINVO'] = self.df['PERIPHERAL_BLOOD_INVO'].str.strip().replace('.', '')
 
-        if 'ajcc8_id' in self.df.columns:
-            self.df['ajcc8_id_new'] = self.df['ajcc8_id']
+        self.df['ajcc8_id_new'] = self.df['ajcc8_id']
 
-        if 'PSA' in self.df.columns:
-            self.format_PSA()
-
-
+        self.format_PSA()
 
     def format_PSA(self):
         self.df['PSA_f'] = self.df['PSA'].apply(lambda x: None if x in ['XXX.1', 'XXX.2', 'XXX.3', 'XXX.7', 'XXX.9'] else float(x))
@@ -425,6 +407,7 @@ class TNMEdits:
         """
         invalid_00169 = pd.read_sql_query(text(query), self.engine)
         return invalid_00169
+    
     def invalid_stage_grade(self, sg_grade):
         query = """
         SELECT DISTINCT 
@@ -668,7 +651,7 @@ class TNMEdits:
 
     def final_stagegroup_edits(self):
         # Assume `sg_grade` is loaded previously
-        sg_grade = self.load_sg_data(r'SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
+        sg_grade = self.load_sg_data('SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
         invalid_stage_grade_df = self.invalid_stage_grade(sg_grade)
         
         # Combine with other invalid data (dummy placeholders for other schemas)
