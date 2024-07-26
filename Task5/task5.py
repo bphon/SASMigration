@@ -6,13 +6,14 @@ from email.message import EmailMessage
 import oracledb
 import os
 
+
 class TNMEdits:
     def __init__(self):
         self.df = None
         self.engine = None
         # database connection if needed then remove the # from the next line
         # oracledb.init_oracle_client()
-        # connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME)
+        # connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME
 
     def load_data(self, file_path):
         if os.path.exists(file_path):
@@ -33,8 +34,13 @@ class TNMEdits:
                 raise KeyError(f"Missing required column: {column}")
 
     def load_sg_data(self, file_path, sheet_name=None):
-        if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
-            sg_data = pd.read_excel(file_path, sheet_name=sheet_name)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        if file_path.endswith('.xlsx'):
+            sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
+        elif file_path.endswith('.xls'):
+            sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='xlrd')
         elif file_path.endswith('.csv'):
             sg_data = pd.read_csv(file_path)
         else:
@@ -149,11 +155,6 @@ class TNMEdits:
         """
         invalid_sg_allschemas2 = pd.read_sql_query(text(query), self.engine)
         return invalid_sg_allschemas2
-
-    def load_sg_data(self, file_path, sheet_name):
-        sg_data = pd.read_excel(file_path, sheet_name=sheet_name)
-        sg_data = sg_data.drop_duplicates()
-        return sg_data
 
     def invalid_schema_00811(self, sg_00811):
         query = """
@@ -687,30 +688,6 @@ class TNMEdits:
     def export_to_excel(self, df, file_path, sheet_name):
         df.to_excel(file_path, sheet_name=sheet_name, index=False)
 
-    def send_email(self, to, subject, body, attachments=None):
-        msg = EmailMessage()
-        msg['To'] = to
-        msg['Subject'] = subject
-        msg.set_content(body)
-
-        if attachments:
-            for attachment in attachments:
-                with open(attachment, 'rb') as f:
-                    file_data = f.read()
-                    file_name = attachment.split('/')[-1]
-                    msg.add_attachment(file_data, maintype='application', subtype='octet-stream', filename=file_name)
-
-        with smtplib.SMTP('localhost') as s:
-            s.send_message(msg)
-
-    def notify_success_or_error(self, success_attachment, error_message):
-        try:
-            final_stagegroup_edits = self.final_stagegroup_edits()
-            self.export_to_excel(final_stagegroup_edits, r'g:\OneDrive\Desktop\AHS Work\SASMigration\Task5\Task5.xlsx', 'TNM Overall Stage Edits')
-            self.send_email("EMAIL_ADDRESS", "TNM Stage Group Edits - Data for Review", "Please find attached the Frequency regarding TNM Stage Group Edits for Cleanups.", [success_attachment])
-        except Exception as e:
-            self.send_email("EMAIL_ADDRESS", "TNM Stage Group Edits - Error with Data", f"There was an error: {str(e)}")
-
 def main():
     tnm = TNMEdits()
     final_edits = None
@@ -755,8 +732,7 @@ def main():
         print("19. Generate Invalid Schema 00680")
         print("20. Generate Invalid Stage (TNM Only)")
         print("21. Export to Excel")
-        print("22. Send email notification")
-        print("23. Exit")
+        print("22. Exit")
         choice = input("Enter your choice: ")
 
         if choice == '1':
@@ -873,10 +849,6 @@ def main():
             else:
                 print("Generate final stage group edits first.")
         elif choice == '22':
-            success_attachment = input("Enter the path to the frequency file: ")
-            error_message = input("Enter the error message: ")
-            tnm.notify_success_or_error(success_attachment, error_message)
-        elif choice == '23':
             break
         else:
             print("Invalid choice. Please try again.")
