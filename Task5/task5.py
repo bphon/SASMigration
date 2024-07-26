@@ -10,6 +10,8 @@ class TNMEdits:
     def __init__(self):
         self.df = None
         self.engine = None
+        oracledb.init_oracle_client()
+        connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME)
 
     def load_data(self, file_path):
         if os.path.exists(file_path):
@@ -125,7 +127,7 @@ class TNMEdits:
             OR (ajcc8_posttherapy_t=' ' AND ajcc8_posttherapy_n=' ' AND ajcc8_posttherapy_m=' ' AND ajcc8_posttherapy_stage NOT IN ('99', '88', ' '))
         ORDER BY schema_id
         """
-        invalid_sg_allschemas = pd.read_sql_query(text(query), self.engine)
+        invalid_sg_allschemas = pd.read_sql_query(text(query), self.engine.connect())
         return invalid_sg_allschemas
 
     def invalid_sg_allschemas2(self):
