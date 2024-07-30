@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 
-
 class TNMEdits:
     def __init__(self):
         self.df = None  # DataFrame to hold the data
@@ -43,6 +42,8 @@ class TNMEdits:
             
             sg_data = sg_data.drop_duplicates()
             return sg_data
+        except ValueError as ve:
+            print(f"Error: {ve}")
         except Exception as e:
             print(f"An error occurred while loading the schema data: {e}")
         return None
@@ -533,8 +534,11 @@ class TNMEdits:
 
     def final_stagegroup_edits(self, output_file_path):
         # Load reference data for validation
-        sg_grade = self.load_sg_data(r'SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
-        
+        sg_grade = self.load_sg_data(r'G:\OneDrive\Desktop\AHS Work\SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
+        if sg_grade is None:
+            print("Error: Failed to load SG grade data. Please check the file and sheet name.")
+            return None
+
         # Generate invalid stage grade data
         invalid_stage_grade_df = self.invalid_stage_grade(sg_grade)
         
