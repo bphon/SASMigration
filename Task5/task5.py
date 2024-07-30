@@ -4,7 +4,7 @@ import os
 
 class TNMEdits:
     def __init__(self):
-        self.df = None  # dataframe to hold the data
+        self.df = None  # DataFrame to hold the data
 
     def load_data(self, file_path):
         if os.path.exists(file_path):
@@ -104,6 +104,10 @@ class TNMEdits:
         self.df['PSA_f'] = self.df['PSA'].apply(lambda x: None if x in ['XXX.1', 'XXX.2', 'XXX.3', 'XXX.7', 'XXX.9'] else float(x))
 
     def invalid_stage_grade(self, sg_grade):
+
+        if sg_grade is None:
+            print("Error: SG grade data is none")
+            return None
         invalid_stage_grade = self.df.merge(
             sg_grade,
             how='inner',
@@ -117,48 +121,31 @@ class TNMEdits:
         invalid_stage_grade['tnm_edit2000'] = 1
         return invalid_stage_grade
 
-    def invalid_sg_allschemas(self):
-        invalid_sg_allschemas = self.df[
-            ((self.df['ajcc8_path_t'] == ' ') & (self.df['ajcc8_path_n'] == ' ') & (self.df['ajcc8_path_m'] == ' ') & 
-             (~self.df['ajcc8_path_stage'].isin(['99', '88', ' '])) ) |
-            ((self.df['ajcc8_clinical_t'] == ' ') & (self.df['ajcc8_clinical_n'] == ' ') & (self.df['ajcc8_clinical_m'] == ' ') & 
-             (~self.df['ajcc8_clinical_stage'].isin(['99', '88'])) ) |
-            ((self.df['ajcc8_postTherapy_t'] == ' ') & (self.df['ajcc8_postTherapy_n'] == ' ') & (self.df['ajcc8_postTherapy_m'] == ' ') & 
-             (~self.df['ajcc8_postTherapy_stage'].isin(['99', '88', ' '])) )
-        ]
+    def invalid_sg_allschemas(self, sg_grade):
+        if sg_grade is None:
+            print("Error: SG grade data is none")
+            return None
+        invalid_sg_allschemas = self.df.query(
+            "(ajcc8_path_t == ' ' and ajcc8_path_n == ' ' and ajcc8_path_m == ' ' and ajcc8_path_stage not in ['99', '88', ' ']) or "
+            "(ajcc8_clinical_t == ' ' and ajcc8_clinical_n == ' ' and ajcc8_clinical_m == ' ' and ajcc8_clinical_stage not in ['99', '88']) or "
+            "(ajcc8_posttherapy_t == ' ' and ajcc8_posttherapy_n == ' ' and ajcc8_posttherapy_m == ' ' and ajcc8_posttherapy_stage not in ['99', '88', ' '])"
+        )
         invalid_sg_allschemas['tnm_edit2000'] = 1
         return invalid_sg_allschemas
 
-    def invalid_sg_allschemas2(self):
-        invalid_sg_allschemas2 = self.df[
-            (~self.df['schema_id'].isin(['00730'])) & 
-            (
-                ((self.df['ajcc8_path_t'] == ' ') & (self.df['ajcc8_path_n'] == ' ') & (self.df['path_m'] == 'M0') & 
-                 (~self.df['ajcc8_path_stage'].isin(['99', '88'])) ) |
-                ((self.df['ajcc8_clinical_t'] == ' ') & (self.df['ajcc8_clinical_n'] == ' ') & (self.df['clin_m'] == 'M0') & 
-                 (~self.df['ajcc8_clinical_stage'].isin(['99', '88'])) ) |
-                ((self.df['ajcc8_postTherapy_t'] == ' ') & (self.df['ajcc8_postTherapy_n'] == ' ') & (self.df['post_m'] == 'M0') & 
-                 (~self.df['ajcc8_postTherapy_stage'].isin(['99', '88', ' '])) )
-            )
-        ]
+    def invalid_sg_allschemas2(self, sg_grade):
+        if sg_grade is None:
+            print("Error: SG grade data is none")
+            return None
+        
+        invalid_sg_allschemas2 = self.df.query(
+            "schema_id not in ['00730'] and "
+            "((ajcc8_path_t == ' ' and ajcc8_path_n == ' ' and path_m == 'M0' and ajcc8_path_stage not in ['99', '88']) or "
+            "(ajcc8_clinical_t == ' ' and ajcc8_clinical_n == ' ' and clin_m == 'M0' and ajcc8_clinical_stage not in ['99', '88']) or "
+            "(ajcc8_posttherapy_t == ' ' and ajcc8_posttherapy_n == ' ' and post_m == 'M0' and ajcc8_posttherapy_stage not in ['99', '88', ' ']))"
+        )
         invalid_sg_allschemas2['tnm_edit2000'] = 1
         return invalid_sg_allschemas2
-
-    def invalid_schema_00811(self, sg_00811):
-        invalid_00811 = self.df.merge(
-            sg_00811,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
-            "(descriptor in ['c', 'cp'] and "
-            "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
-            "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
-            "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(PBLOODINVO == p_blood_value) and (clin_stage != stage_group))"
-        )
-        invalid_00811['tnm_edit2000'] = 1
-        return invalid_00811
 
     def invalid_schema_00580(self, sg_00580):
         invalid_00580 = self.df.merge(
@@ -167,13 +154,27 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
             "((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and "
             "((PSA_X == 'XXX.1' and PSA == PSA_X) or (PSA == 'Any' and PSA.str.contains('%')) or (low <= PSA_f <= high)) and "
-            "(clin_stage != stage_group))"
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and ajcc8_path_t.str.contains('%')) or ajcc8_path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and "
+            "((PSA_X == 'XXX.1' and PSA == PSA_X) or (PSA == 'Any' and PSA.str.contains('%')) or (low <= PSA_f <= high)) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and ajcc8_posttherapy_t.str.contains('%')) or ajcc8_posttherapy_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and "
+            "((PSA_X == 'XXX.1' and PSA == PSA_X) or (PSA == 'Any' and PSA.str.contains('%')) or (low <= PSA_f <= high)) and "
+            "post_stage != stage_group))"
         )
         invalid_00580['tnm_edit2000'] = 1
         return invalid_00580
@@ -185,13 +186,27 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(ajcc8_id == ajccid) and "
+            "ajcc8_id == ajccid and "
             "((agegroup == 'A' and agegrp.str.contains('%')) or agegroup == agegrp) and "
-            "(clin_stage != stage_group))"
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "ajcc8_id == ajccid and "
+            "((agegroup == 'A' and agegrp.str.contains('%')) or agegroup == agegrp) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "ajcc8_id == ajccid and "
+            "((agegroup == 'A' and agegrp.str.contains('%')) or agegroup == agegrp) and "
+            "post_stage != stage_group))"
         )
         invalid_00730['tnm_edit2000'] = 1
         return invalid_00730
@@ -203,12 +218,24 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(discriminator2.str.contains(discriminator2)) and "
-            "(clin_stage != stage_group))"
+            "discriminator2.str.contains(discriminator2) and "
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "discriminator2.str.contains(discriminator2) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "discriminator2.str.contains(discriminator2) and "
+            "post_stage != stage_group))"
         )
         invalid_00111['tnm_edit2000'] = 1
         return invalid_00111
@@ -220,11 +247,21 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(gestational_prog_index == gtpi) and "
-            "(clin_stage != stage_group))"
+            "gestational_prog_index.str.contains(gtpi) and "
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "gestational_prog_index.str.contains(gtpi) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "gestational_prog_index.str.contains(gtpi) and "
+            "post_stage != stage_group))"
         )
         invalid_00560['tnm_edit2000'] = 1
         return invalid_00560
@@ -236,13 +273,27 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
             "((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and "
-            "(ajcc8_id == ajccid) and "
-            "(clin_stage != stage_group))"
+            "ajcc8_id == ajccid and "
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and "
+            "ajcc8_id == ajccid and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and "
+            "ajcc8_id == ajccid and "
+            "post_stage != stage_group))"
         )
         invalid_00430['tnm_edit2000'] = 1
         return invalid_00430
@@ -259,7 +310,13 @@ class TNMEdits:
             "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
             "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
             "((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and "
-            "(path_stage != stage_group))"
+            "path_stage != stage_group) or "
+            "(descriptor == 'y' and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and "
+            "post_stage != stage_group)"
         )
         invalid_00169['tnm_edit2000'] = 1
         return invalid_00169
@@ -271,12 +328,24 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(s_category_clin.str.contains(s_cat)) and "
-            "(clin_stage != stage_group))"
+            "((s_cat == 'S' and s_category_clin.str.contains('%')) or s_category_clin.str.contains(s_cat)) and "
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value in ['T', 'pT'] and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "((s_cat == 'S' and s_category_path.str.contains('%')) or s_category_path.str.contains(s_cat)) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value in ['T', 'pT'] and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((s_cat == 'S' and s_category_path.str.contains('%')) or s_category_path.str.contains(s_cat)) and "
+            "post_stage != stage_group))"
         )
         invalid_00590['tnm_edit2000'] = 1
         return invalid_00590
@@ -288,12 +357,25 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and ajcc8_clinical_n.str.contains('%')) or ajcc8_clinical_n.str.contains(n_value)) and "
             "((m_value == 'M' and ajcc8_clinical_m.str.contains('%')) or ajcc8_clinical_m.str.contains(m_value)) and "
-            "(ER == ER_value) and (PR == PR_value) and (HER2_SUMMARY == HER2_SUM_Value) and (ajcc8_clinical_grade == grade) and "
-            "(ajcc8_clinical_stage != stage_group))"
+            "ER == ER_value and "
+            "PR == PR_value and "
+            "HER2_SUMMARY == HER2_SUM_Value and "
+            "ajcc8_clinical_grade == grade and "
+            "ajcc8_clinical_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "(ONCOTYPE_DX_SCORE >= '011' and ONCOTYPE_DX_SCORE not in ['XX4']) and "
+            "((t_value == 'T' and ajcc8_path_t.str.contains('%')) or ajcc8_path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and ajcc8_path_n.str.contains('%')) or ajcc8_path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and ajcc8_path_m.str.contains('%')) or ajcc8_path_m.str.contains(m_value)) and "
+            "ER == ER_value and "
+            "PR == PR_value and "
+            "HER2_SUMMARY == HER2_SUM_Value and "
+            "ajcc8_path_grade == grade and "
+            "ajcc8_path_stage != stage_group))"
         )
         invalid_00480['tnm_edit2000'] = 1
         return invalid_00480
@@ -306,12 +388,13 @@ class TNMEdits:
             right_on='SchemaId'
         ).query(
             "(descriptor in ['p', 'cp'] and "
-            "((ONCOTYPE_DX_SCORE < '011') or (ONCOTYPE_DX_SCORE in ['XX4'])) and "
+            "(ONCOTYPE_DX_SCORE < '011' or ONCOTYPE_DX_SCORE in ['XX4']) and "
             "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
             "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
             "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
-            "(ER == ER_value) and (HER2_SUMMARY == HER2_SUM_Value) and "
-            "(path_stage != stage_group))"
+            "ER == ER_value and "
+            "HER2_SUMMARY == HER2_SUM_Value and "
+            "path_stage != stage_group)"
         )
         invalid_00480_onc['tnm_edit2000'] = 1
         return invalid_00480_onc
@@ -323,9 +406,24 @@ class TNMEdits:
             left_on='schema_id',
             right_on='schemaid'
         ).query(
-            "((descriptor in ['c', 'cp'] and ((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and ((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and ((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and clin_stage != stage_group) or "
-            "(descriptor in ['p', 'cp'] and ((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and ((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and ((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and path_stage != stage_group) or "
-            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and ((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and ((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and ((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and post_stage != stage_group))"
+            "((descriptor in ['c', 'cp'] and "
+            "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
+            "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
+            "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and "
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and "
+            "post_stage != stage_group))"
         )
         invalid_schemas['tnm_edit2000'] = 1
         return invalid_schemas
@@ -337,11 +435,21 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(clin_stage != stage_group))"
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "path_stage != stage_group) or "
+            "(descriptor == 'y' and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "post_stage != stage_group)"
         )
         invalid_00170['tnm_edit2000'] = 1
         return invalid_00170
@@ -353,11 +461,21 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and ajcc8_clinical_n.str.contains('%')) or ajcc8_clinical_n.str.contains(n_value)) and "
             "((m_value == 'M' and ajcc8_clinical_m.str.contains('%')) or ajcc8_clinical_m.str.contains(m_value)) and "
-            "(clin_stage != stage_group))"
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and ajcc8_path_t.str.contains('%')) or ajcc8_path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and ajcc8_path_n.str.contains('%')) or ajcc8_path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and ajcc8_path_m.str.contains('%')) or ajcc8_path_m.str.contains(m_value)) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and ajcc8_posttherapy_t.str.contains('%')) or ajcc8_posttherapy_t.str.contains(t_value)) and "
+            "((n_value == 'N' and ajcc8_posttherapy_n.str.contains('%')) or ajcc8_posttherapy_n.str.contains(n_value)) and "
+            "((m_value == 'M' and ajcc8_posttherapy_m.str.contains('%')) or ajcc8_posttherapy_m.str.contains(m_value)) and "
+            "post_stage != stage_group))"
         )
         invalid_00680['tnm_edit2000'] = 1
         return invalid_00680
@@ -375,7 +493,14 @@ class TNMEdits:
             "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
             "((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and "
             "((location == 'L' and ESOPHAGUS_EGJ_TUMOR_CENTER.str.contains('%')) or ESOPHAGUS_EGJ_TUMOR_CENTER.str.contains(location)) and "
-            "(path_stage != stage_group))"
+            "path_stage != stage_group) or "
+            "(descriptor == 'y' and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and "
+            "((location == 'L' and ESOPHAGUS_EGJ_TUMOR_CENTER.str.contains('%')) or ESOPHAGUS_EGJ_TUMOR_CENTER.str.contains(location)) and "
+            "post_stage != stage_group)"
         )
         invalid_00161['tnm_edit2000'] = 1
         return invalid_00161
@@ -387,11 +512,21 @@ class TNMEdits:
             left_on='schema_id',
             right_on='SchemaId'
         ).query(
-            "(descriptor in ['c', 'cp'] and "
+            "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
-            "(clin_stage != stage_group))"
+            "clin_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and "
+            "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
+            "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
+            "((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and "
+            "path_stage != stage_group) or "
+            "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and "
+            "((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and "
+            "((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and "
+            "((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and "
+            "post_stage != stage_group))"
         )
         invalid_stage['tnm_edit2000'] = 1
         return invalid_stage
@@ -447,7 +582,6 @@ class TNMEdits:
     def export_to_excel(self, df, file_path, sheet_name):
         df.to_excel(file_path, sheet_name=sheet_name, index=False)
 
-
 def main():
     tnm = TNMEdits()
     final_edits = None
@@ -473,7 +607,7 @@ def main():
         print("\nMenu:")
         print("1. Load data")
         print("2. Perform Step1B TNM edits (Clean data)")
-        print("3. Generate final stage group edits")
+        print("3. Generate final stage group edits (combine all data)")
         print("4. Generate Invalid SG for all schemas")
         print("5. Generate Invalid SG for all schemas 2")
         print("6. Generate Invalid Stage Grade (00381, 00440, 00410, 00190)")
@@ -505,11 +639,15 @@ def main():
             final_edits = tnm.final_stagegroup_edits(output_file_path)
             print("Final stage group edits generated.")
         elif choice == '4':
-            invalid_sg_allschemas = tnm.invalid_sg_allschemas()
+            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
+            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
+            invalid_sg_allschemas = tnm.invalid_sg_allschemas(sg_grade)
             print("Invalid SG for all schemas generated.")
             print(invalid_sg_allschemas.head())
         elif choice == '5':
-            invalid_sg_allschemas2 = tnm.invalid_sg_allschemas2()
+            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
+            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
+            invalid_sg_allschemas2 = tnm.invalid_sg_allschemas2(sg_grade)
             print("Invalid SG for all schemas 2 generated.")
             print(invalid_sg_allschemas2.head())
         elif choice == '6':
