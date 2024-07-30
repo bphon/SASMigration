@@ -5,49 +5,54 @@ import smtplib
 from email.message import EmailMessage
 import oracledb
 import os
+import zipfile
 
 
 class TNMEdits:
     def __init__(self):
-        self.df = None
-        self.engine = None
-        # database connection if needed then remove the # from the next line
-        # oracledb.init_oracle_client()
-        # connection = oracledb.connect(user= f"{ORACLE_USERNAME}[ALBERTA_CANCER_REGISTRY_ANLYS]", password=ORACLE_PASSWORD, dsn= ORACLE_TNS_NAME
+        self.df = None # dataframe to hold the data 
+        self.engine = None  # Update this with your actual connection string
 
     def load_data(self, file_path):
         if os.path.exists(file_path):
-            self.df = pd.read_csv(file_path)
-            print("Columns in the loaded DataFrame:", self.df.columns)
+            try:
+                self.df = pd.read_csv(file_path)
+                if self.df.empty:
+                    print(f"The file {file_path} is empty.")
+                else:
+                    print("Columns in the loaded DataFrame:", self.df.columns)
+            except Exception as e:
+                print(f"Error loading data from {file_path}: {e}")
         else:
             print(f"File not found: {file_path}")
-
-    def check_required_columns(self):
-        required_columns = [
-            'ajcc8_path_t', 'ajcc8_path_n', 'ajcc8_path_m', 'ajcc8_path_stage',
-            'ajcc8_clinical_t', 'ajcc8_clinical_n', 'ajcc8_clinical_m', 'ajcc8_clinical_stage',
-            'ajcc8_postTherapy_t', 'ajcc8_postTherapy_n', 'ajcc8_postTherapy_m', 'ajcc8_postTherapy_stage',
-            'age_diag', 'PERIPHERAL_BLOOD_INVO', 'ajcc8_id', 'PSA'
-        ]
-        for column in required_columns:
-            if column not in self.df.columns:
-                raise KeyError(f"Missing required column: {column}")
 
     def load_sg_data(self, file_path, sheet_name=None):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        if file_path.endswith('.xlsx'):
-            sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
-        elif file_path.endswith('.xls'):
-            sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='xlrd')
-        elif file_path.endswith('.csv'):
-            sg_data = pd.read_csv(file_path)
-        else:
-            raise ValueError("Unsupported file type")
-        
-        sg_data = sg_data.drop_duplicates()
-        return sg_data
+        if os.path.getsize(file_path) == 0:
+            print(f"The file {file_path} is empty.")
+            return None
+
+        try:
+            if file_path.endswith('.xlsx'):
+                sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
+            elif file_path.endswith('.xls'):
+                sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='xlrd')
+            elif file_path.endswith('.csv'):
+                sg_data = pd.read_csv(file_path)
+            else:
+                raise ValueError("Unsupported file type")
+
+            if sg_data.empty:
+                print("The file contains no data.")
+                return None
+            
+            sg_data = sg_data.drop_duplicates()
+            return sg_data
+        except Exception as e:
+            print(f"An error occurred while loading the schema data: {e}")
+        return None
 
     def step1b_tnmedits(self):
         required_columns = [
@@ -57,9 +62,10 @@ class TNMEdits:
             'age_diag', 'PERIPHERAL_BLOOD_INVO', 'ajcc8_id', 'PSA'
         ]
 
-        missing_columns = [col for col in required_columns if col not in self.df.columns]
-        if missing_columns:
-            print(f"Warning: Missing required columns: {', '.join(missing_columns)}")
+        # Assign default values for missing columns
+        for column in required_columns:
+            if column not in self.df.columns:
+                self.df[column] = ''
 
         if 'ajcc8_path_t' in self.df.columns:
             self.df['path_t'] = self.df['ajcc8_path_t'].str[1:].str.strip()
@@ -89,6 +95,7 @@ class TNMEdits:
             self.df['post_stage'] = self.df['ajcc8_postTherapy_stage'].str.strip()
 
         if 'age_diag' in self.df.columns:
+            self.df['age_diag'] = pd.to_numeric(self.df['age_diag'], errors='coerce')  # Convert to numeric
             self.df['agegrp'] = self.df['age_diag'].apply(lambda x: "<55" if x < 55 else ">=55")
 
         if 'PERIPHERAL_BLOOD_INVO' in self.df.columns:
@@ -100,11 +107,9 @@ class TNMEdits:
         if 'PSA' in self.df.columns:
             self.format_PSA()
 
-
-
     def format_PSA(self):
         self.df['PSA_f'] = self.df['PSA'].apply(lambda x: None if x in ['XXX.1', 'XXX.2', 'XXX.3', 'XXX.7', 'XXX.9'] else float(x))
-        
+
     def invalid_stage_grade(self, sg_grade):
         invalid_stage_grade = self.df.merge(
             sg_grade,
@@ -119,6 +124,7 @@ class TNMEdits:
         invalid_stage_grade['tnm_edit2000'] = 1
         return invalid_stage_grade
 
+    #TNM Overall Staging Edits
     def invalid_sg_allschemas(self):
         query = """
         SELECT DISTINCT 
@@ -671,22 +677,21 @@ class TNMEdits:
         return invalid_stage
 
     def final_stagegroup_edits(self):
-        # Assume `sg_grade` is loaded previously
         sg_grade = self.load_sg_data(r'SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
         invalid_stage_grade_df = self.invalid_stage_grade(sg_grade)
         
-        # Combine with other invalid data (dummy placeholders for other schemas)
         other_invalid_data = pd.DataFrame()  # Replace with actual data loading and processing logic
 
         final_stagegroup_edits = pd.concat([
             invalid_stage_grade_df,
-            other_invalid_data  # Add other processed DataFrames here
+            other_invalid_data
         ])
         final_stagegroup_edits['tnm_edit_flag'] = "2000 Invalid Overall Stage Group for T/N/M Combo"
         return final_stagegroup_edits
 
     def export_to_excel(self, df, file_path, sheet_name):
         df.to_excel(file_path, sheet_name=sheet_name, index=False)
+
 
 def main():
     tnm = TNMEdits()
@@ -712,7 +717,7 @@ def main():
     while True:
         print("\nMenu:")
         print("1. Load data")
-        print("2. Perform Step1B TNM edits")
+        print("2. Perform Step1B TNM edits (Clean data)")
         print("3. Generate final stage group edits")
         print("4. Generate Invalid SG for all schemas")
         print("5. Generate Invalid SG for all schemas 2")
