@@ -4,7 +4,7 @@ import os
 class TNMEdits:
     def __init__(self):
         self.df = None  # DataFrame to hold the data
-
+        
     def load_data(self, file_path):
         if os.path.exists(file_path):
             try:
@@ -17,36 +17,6 @@ class TNMEdits:
                 print(f"Error loading data from {file_path}: {e}")
         else:
             print(f"File not found: {file_path}")
-
-    def load_sg_data(self, file_path, sheet_name=None):
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        if os.path.getsize(file_path) == 0:
-            print(f"The file {file_path} is empty.")
-            return None
-
-        try:
-            if file_path.endswith('.xlsx'):
-                sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
-            elif file_path.endswith('.xls'):
-                sg_data = pd.read_excel(file_path, sheet_name=sheet_name, engine='xlrd')
-            elif file_path.endswith('.csv'):
-                sg_data = pd.read_csv(file_path)
-            else:
-                raise ValueError("Unsupported file type")
-
-            if sg_data.empty:
-                print("The file contains no data.")
-                return None
-            
-            sg_data = sg_data.drop_duplicates()
-            return sg_data
-        except ValueError as ve:
-            print(f"Error: {ve}")
-        except Exception as e:
-            print(f"An error occurred while loading the schema data: {e}")
-        return None
 
     def step1b_tnmedits(self):
         required_columns = [
@@ -104,17 +74,8 @@ class TNMEdits:
     def format_PSA(self):
         self.df['PSA_f'] = self.df['PSA'].apply(lambda x: None if x in ['XXX.1', 'XXX.2', 'XXX.3', 'XXX.7', 'XXX.9'] else float(x))
 
-    def invalid_stage_grade(self, sg_grade):
-
-        if sg_grade is None:
-            print("Error: SG grade data is none")
-            return None
-        invalid_stage_grade = self.df.merge(
-            sg_grade,
-            how='inner',
-            left_on='schema_id',
-            right_on='schemaid'
-        ).query(
+    def invalid_stage_grade(self):
+        invalid_stage_grade = self.df.query(
             "(descriptor in ['c', 'cp'] and ((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and ((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and ((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_clinical_grade.str.contains('%')) or ajcc8_clinical_grade.str.contains(grade)) and clin_stage != stage_group) or "
             "(descriptor in ['p', 'cp'] and ((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and ((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and ((m_value == 'M' and path_m.str.contains('%')) or path_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_path_grade.str.contains('%')) or ajcc8_path_grade.str.contains(grade)) and path_stage != stage_group) or "
             "(descriptor in ['p', 'cp'] and ajcc8_path_stage == ' ' and ((t_value == 'T' and post_t.str.contains('%')) or post_t.str.contains(t_value)) and ((n_value == 'N' and post_n.str.contains('%')) or post_n.str.contains(n_value)) and ((m_value == 'M' and post_m.str.contains('%')) or post_m.str.contains(m_value)) and ((grade == 'G' and ajcc8_posttherapy_grade.str.contains('%')) or ajcc8_posttherapy_grade.str.contains(grade)) and post_stage != stage_group)"
@@ -122,10 +83,7 @@ class TNMEdits:
         invalid_stage_grade['tnm_edit2000'] = 1
         return invalid_stage_grade
 
-    def invalid_sg_allschemas(self, sg_grade):
-        if sg_grade is None:
-            print("Error: SG grade data is none")
-            return None
+    def invalid_sg_allschemas(self):
         invalid_sg_allschemas = self.df.query(
             "(ajcc8_path_t == ' ' and ajcc8_path_n == ' ' and ajcc8_path_m == ' ' and ajcc8_path_stage not in ['99', '88', ' ']) or "
             "(ajcc8_clinical_t == ' ' and ajcc8_clinical_n == ' ' and ajcc8_clinical_m == ' ' and ajcc8_clinical_stage not in ['99', '88']) or "
@@ -134,11 +92,7 @@ class TNMEdits:
         invalid_sg_allschemas['tnm_edit2000'] = 1
         return invalid_sg_allschemas
 
-    def invalid_sg_allschemas2(self, sg_grade):
-        if sg_grade is None:
-            print("Error: SG grade data is none")
-            return None
-        
+    def invalid_sg_allschemas2(self):
         invalid_sg_allschemas2 = self.df.query(
             "schema_id not in ['00730'] and "
             "((ajcc8_path_t == ' ' and ajcc8_path_n == ' ' and path_m == 'M0' and ajcc8_path_stage not in ['99', '88']) or "
@@ -148,13 +102,8 @@ class TNMEdits:
         invalid_sg_allschemas2['tnm_edit2000'] = 1
         return invalid_sg_allschemas2
 
-    def invalid_schema_00580(self, sg_00580):
-        invalid_00580 = self.df.merge(
-            sg_00580,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00580(self):
+        invalid_00580 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -180,13 +129,8 @@ class TNMEdits:
         invalid_00580['tnm_edit2000'] = 1
         return invalid_00580
 
-    def invalid_schema_00730(self, sg_00730):
-        invalid_00730 = self.df.merge(
-            sg_00730,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00730(self):
+        invalid_00730 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -212,13 +156,8 @@ class TNMEdits:
         invalid_00730['tnm_edit2000'] = 1
         return invalid_00730
 
-    def invalid_schema_00111(self, sg_00111):
-        invalid_00111 = self.df.merge(
-            sg_00111,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00111(self):
+        invalid_00111 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -241,13 +180,8 @@ class TNMEdits:
         invalid_00111['tnm_edit2000'] = 1
         return invalid_00111
 
-    def invalid_schema_00560(self, sg_00560):
-        invalid_00560 = self.df.merge(
-            sg_00560,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00560(self):
+        invalid_00560 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((m_value == 'M' and clin_m.str.contains('%')) or clin_m.str.contains(m_value)) and "
@@ -267,13 +201,8 @@ class TNMEdits:
         invalid_00560['tnm_edit2000'] = 1
         return invalid_00560
 
-    def invalid_schema_00430(self, sg_00430):
-        invalid_00430 = self.df.merge(
-            sg_00430,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00430(self):
+        invalid_00430 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -299,13 +228,8 @@ class TNMEdits:
         invalid_00430['tnm_edit2000'] = 1
         return invalid_00430
 
-    def invalid_schema_00169(self, sg_00169):
-        invalid_00169 = self.df.merge(
-            sg_00169,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00169(self):
+        invalid_00169 = self.df.query(
             "(descriptor in ['p', 'cp'] and "
             "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
             "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
@@ -322,13 +246,8 @@ class TNMEdits:
         invalid_00169['tnm_edit2000'] = 1
         return invalid_00169
 
-    def invalid_schema_00590(self, sg_00590):
-        invalid_00590 = self.df.merge(
-            sg_00590,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00590(self):
+        invalid_00590 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -351,13 +270,8 @@ class TNMEdits:
         invalid_00590['tnm_edit2000'] = 1
         return invalid_00590
 
-    def invalid_schema_00480(self, sg_00480):
-        invalid_00480 = self.df.merge(
-            sg_00480,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00480(self):
+        invalid_00480 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and ajcc8_clinical_n.str.contains('%')) or ajcc8_clinical_n.str.contains(n_value)) and "
@@ -381,13 +295,8 @@ class TNMEdits:
         invalid_00480['tnm_edit2000'] = 1
         return invalid_00480
 
-    def invalid_schema_00480_onc(self, sg_00480_onc):
-        invalid_00480_onc = self.df.merge(
-            sg_00480_onc,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00480_onc(self):
+        invalid_00480_onc = self.df.query(
             "(descriptor in ['p', 'cp'] and "
             "(ONCOTYPE_DX_SCORE < '011' or ONCOTYPE_DX_SCORE in ['XX4']) and "
             "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
@@ -400,13 +309,8 @@ class TNMEdits:
         invalid_00480_onc['tnm_edit2000'] = 1
         return invalid_00480_onc
 
-    def invalid_schema_00381_00440_00410_00190(self, sg_grade):
-        invalid_schemas = self.df.merge(
-            sg_grade,
-            how='inner',
-            left_on='schema_id',
-            right_on='schemaid'
-        ).query(
+    def invalid_schema_00381_00440_00410_00190(self):
+        invalid_schemas = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -429,13 +333,8 @@ class TNMEdits:
         invalid_schemas['tnm_edit2000'] = 1
         return invalid_schemas
 
-    def invalid_schema_00170(self, sg_00170):
-        invalid_00170 = self.df.merge(
-            sg_00170,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00170(self):
+        invalid_00170 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -455,13 +354,8 @@ class TNMEdits:
         invalid_00170['tnm_edit2000'] = 1
         return invalid_00170
 
-    def invalid_schema_00680(self, sg_00680):
-        invalid_00680 = self.df.merge(
-            sg_00680,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00680(self):
+        invalid_00680 = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and ajcc8_clinical_t.str.contains('%')) or ajcc8_clinical_t.str.contains(t_value)) and "
             "((n_value == 'N' and ajcc8_clinical_n.str.contains('%')) or ajcc8_clinical_n.str.contains(n_value)) and "
@@ -481,13 +375,8 @@ class TNMEdits:
         invalid_00680['tnm_edit2000'] = 1
         return invalid_00680
 
-    def invalid_schema_00161(self, sg_00161):
-        invalid_00161 = self.df.merge(
-            sg_00161,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_schema_00161(self):
+        invalid_00161 = self.df.query(
             "(descriptor in ['p', 'cp'] and "
             "((t_value == 'T' and path_t.str.contains('%')) or path_t.str.contains(t_value)) and "
             "((n_value == 'N' and path_n.str.contains('%')) or path_n.str.contains(n_value)) and "
@@ -506,13 +395,8 @@ class TNMEdits:
         invalid_00161['tnm_edit2000'] = 1
         return invalid_00161
 
-    def invalid_stage(self, sg_TNMonly):
-        invalid_stage = self.df.merge(
-            sg_TNMonly,
-            how='inner',
-            left_on='schema_id',
-            right_on='SchemaId'
-        ).query(
+    def invalid_stage(self):
+        invalid_stage = self.df.query(
             "((descriptor in ['c', 'cp'] and "
             "((t_value == 'T' and clin_t.str.contains('%')) or clin_t.str.contains(t_value)) and "
             "((n_value == 'N' and clin_n.str.contains('%')) or clin_n.str.contains(n_value)) and "
@@ -533,29 +417,23 @@ class TNMEdits:
         return invalid_stage
 
     def final_stagegroup_edits(self, output_file_path):
-        # Load reference data for validation
-        sg_grade = self.load_sg_data(r'G:\OneDrive\Desktop\AHS Work\SASMigration\Task5\Reference Tables - Overall Stage Group Long 2023.xlsx', 'TNM_GRADE')
-        if sg_grade is None:
-            print("Error: Failed to load SG grade data. Please check the file and sheet name.")
-            return None
-
         # Generate invalid stage grade data
-        invalid_stage_grade_df = self.invalid_stage_grade(sg_grade)
+        invalid_stage_grade_df = self.invalid_stage_grade()
         
         # Generate other invalid data
-        invalid_00580 = self.invalid_schema_00580(sg_grade)
-        invalid_00730 = self.invalid_schema_00730(sg_grade)
-        invalid_00111 = self.invalid_schema_00111(sg_grade)
-        invalid_00560 = self.invalid_schema_00560(sg_grade)
-        invalid_00430 = self.invalid_schema_00430(sg_grade)
-        invalid_00169 = self.invalid_schema_00169(sg_grade)
-        invalid_00480 = self.invalid_schema_00480(sg_grade)
-        invalid_00480_onc = self.invalid_schema_00480_onc(sg_grade)
-        invalid_00381_00440_00410_00190 = self.invalid_schema_00381_00440_00410_00190(sg_grade)
-        invalid_00170 = self.invalid_schema_00170(sg_grade)
-        invalid_00680 = self.invalid_schema_00680(sg_grade)
-        invalid_00161 = self.invalid_schema_00161(sg_grade)
-        invalid_stage = self.invalid_stage(sg_grade)
+        invalid_00580 = self.invalid_schema_00580()
+        invalid_00730 = self.invalid_schema_00730()
+        invalid_00111 = self.invalid_schema_00111()
+        invalid_00560 = self.invalid_schema_00560()
+        invalid_00430 = self.invalid_schema_00430()
+        invalid_00169 = self.invalid_schema_00169()
+        invalid_00480 = self.invalid_schema_00480()
+        invalid_00480_onc = self.invalid_schema_00480_onc()
+        invalid_00381_00440_00410_00190 = self.invalid_schema_00381_00440_00410_00190()
+        invalid_00170 = self.invalid_schema_00170()
+        invalid_00680 = self.invalid_schema_00680()
+        invalid_00161 = self.invalid_schema_00161()
+        invalid_stage = self.invalid_stage()
         
         # Combine all data into one DataFrame
         combined_data = pd.concat([
@@ -581,7 +459,6 @@ class TNMEdits:
         self.export_to_excel(combined_data, output_file_path, 'Final_StageGroup_Edits')
         
         return combined_data
-
 
     def export_to_excel(self, df, file_path, sheet_name):
         df.to_excel(file_path, sheet_name=sheet_name, index=False)
@@ -643,105 +520,71 @@ def main():
             final_edits = tnm.final_stagegroup_edits(output_file_path)
             print("Final stage group edits generated.")
         elif choice == '4':
-            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
-            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
-            invalid_sg_allschemas = tnm.invalid_sg_allschemas(sg_grade)
+            invalid_sg_allschemas = tnm.invalid_sg_allschemas()
             print("Invalid SG for all schemas generated.")
             print(invalid_sg_allschemas.head())
         elif choice == '5':
-            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
-            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
-            invalid_sg_allschemas2 = tnm.invalid_sg_allschemas2(sg_grade)
+            invalid_sg_allschemas2 = tnm.invalid_sg_allschemas2()
             print("Invalid SG for all schemas 2 generated.")
             print(invalid_sg_allschemas2.head())
         elif choice == '6':
-            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
-            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
-            invalid_stage_grade_df = tnm.invalid_stage_grade(sg_grade)
+            invalid_stage_grade_df = tnm.invalid_stage_grade()
             print("Invalid Stage Grade (00381, 00440, 00410, 00190) generated.")
             print(invalid_stage_grade_df.head())
         elif choice == '7':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00580 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00580')
-            invalid_00580 = tnm.invalid_schema_00580(sg_data)
+            invalid_00580 = tnm.invalid_schema_00580()
             print("Invalid Schema 00580 generated.")
             print(invalid_00580.head())
         elif choice == '8':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00730 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00730')
-            invalid_00730 = tnm.invalid_schema_00730(sg_data)
+            invalid_00730 = tnm.invalid_schema_00730()
             print("Invalid Schema 00730 generated.")
             print(invalid_00730.head())
         elif choice == '9':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00111 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00111')
-            invalid_00111 = tnm.invalid_schema_00111(sg_data)
+            invalid_00111 = tnm.invalid_schema_00111()
             print("Invalid Schema 00111 generated.")
             print(invalid_00111.head())
         elif choice == '10':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00560 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00560')
-            invalid_00560 = tnm.invalid_schema_00560(sg_data)
+            invalid_00560 = tnm.invalid_schema_00560()
             print("Invalid Schema 00560 generated.")
             print(invalid_00560.head())
         elif choice == '11':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00161 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00161')
-            invalid_00161 = tnm.invalid_schema_00161(sg_data)
+            invalid_00161 = tnm.invalid_schema_00161()
             print("Invalid Schema 00161 generated.")
             print(invalid_00161.head())
         elif choice == '12':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00430 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00430')
-            invalid_00430 = tnm.invalid_schema_00430(sg_data)
+            invalid_00430 = tnm.invalid_schema_00430()
             print("Invalid Schema 00430 generated.")
             print(invalid_00430.head())
         elif choice == '13':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00169 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00169')
-            invalid_00169 = tnm.invalid_schema_00169(sg_data)
+            invalid_00169 = tnm.invalid_schema_00169()
             print("Invalid Schema 00169 generated.")
             print(invalid_00169.head())
         elif choice == '14':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00590 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00590')
-            invalid_00590 = tnm.invalid_schema_00590(sg_data)
+            invalid_00590 = tnm.invalid_schema_00590()
             print("Invalid Schema 00590 generated.")
             print(invalid_00590.head())
         elif choice == '15':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00480 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00480')
-            invalid_00480 = tnm.invalid_schema_00480(sg_data)
+            invalid_00480 = tnm.invalid_schema_00480()
             print("Invalid Schema 00480 generated.")
             print(invalid_00480.head())
         elif choice == '16':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00480 (Oncology) data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00480_Oncology')
-            invalid_00480_onc = tnm.invalid_schema_00480_onc(sg_data)
+            invalid_00480_onc = tnm.invalid_schema_00480_onc()
             print("Invalid Schema 00480 (Oncology) generated.")
             print(invalid_00480_onc.head())
         elif choice == '17':
-            sg_grade_path = input("Enter the path to the Excel file with SG Grade data: ")
-            sg_grade = tnm.load_sg_data(sg_grade_path, 'TNM_GRADE')
-            invalid_00381_00440_00410_00190 = tnm.invalid_schema_00381_00440_00410_00190(sg_grade)
+            invalid_00381_00440_00410_00190 = tnm.invalid_schema_00381_00440_00410_00190()
             print("Invalid Schema 00381, 00440, 00410, 00190 generated.")
             print(invalid_00381_00440_00410_00190.head())
         elif choice == '18':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00170 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00170')
-            invalid_00170 = tnm.invalid_schema_00170(sg_data)
+            invalid_00170 = tnm.invalid_schema_00170()
             print("Invalid Schema 00170 generated.")
             print(invalid_00170.head())
         elif choice == '19':
-            sg_data_path = input("Enter the path to the Excel file with Schema 00680 data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_00680')
-            invalid_00680 = tnm.invalid_schema_00680(sg_data)
+            invalid_00680 = tnm.invalid_schema_00680()
             print("Invalid Schema 00680 generated.")
             print(invalid_00680.head())
         elif choice == '20':
-            sg_data_path = input("Enter the path to the Excel file with TNM Only data: ")
-            sg_data = tnm.load_sg_data(sg_data_path, 'TNM_TNMonly')
-            invalid_stage = tnm.invalid_stage(sg_data)
+            invalid_stage = tnm.invalid_stage()
             print("Invalid Stage (TNM Only) generated.")
             print(invalid_stage.head())
         elif choice == '21':
