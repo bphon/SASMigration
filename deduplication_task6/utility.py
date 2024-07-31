@@ -194,8 +194,9 @@ class Utility:
         print(f"Data written to {file_name} successfully.")
     
     
-    def create_link (self, df_table1, df_table2):
-               
+  def create_link (self, df_table1, df_table2):
+        
+
             indexer = recordlinkage.Index()
             indexer.block(left_on='sex', right_on='sex1', not_equal_on=('acb_no', 'acbno1'))
             
@@ -206,9 +207,13 @@ class Utility:
             
             comp_cl = recordlinkage.Compare()
             
-            comp_cl.exact('snd_last', 'snd_last1', label = 'snd_last')
-            comp_cl.dateSwap('dob', 'dob1', label = 'date_of_birth')
-            
+            comp_cl.string('snd_last', 'snd_last1', method="jarowinkler", threshold=0.85, label = 'snd_last')
+            comp_cl.string('uli', 'uli1', method="jarowinkler", threshold = 0.85, label='uli')
+            comp_cl.exact('dob', 'dob1', label = 'date_of_birth')
+            comp_cl.string('fst_name', 'fstnme1', method="jarowinkler", threshold = 0.85, label = 'first_name')
+            comp_cl.string('lst_name', 'lstnme1', method="jarowinkler", threshold = 0.85, label = 'last_name')
+            comp_cl.exact('dth_dte', 'dth_dte1', label = 'date_of_death')            
+        
             ''' 
              comp_cl.date('dob', 'dob1', label = 'date_of_birth') can be used
              instead to meaure extacts as 1, month-day swaps as 0.5 ensure
@@ -216,79 +221,36 @@ class Utility:
 
              
             '''
+
+            comparison_vectors = comp_cl.compute(candidate_links, df_table1, df_table2)
+
+            
+            # Add the acb_no and acbno1 to the comparison results
+            comparison_results = comparison_vectors.reset_index()
+            comparison_results['rec_id_1'] = comparison_results['level_0'].map(df_table1['acb_no'])
+            comparison_results['rec_id_2'] = comparison_results['level_1'].map(df_table2['acbno1'])
+            comparison_results.columns = ['level_0', 'level_1', 'snd_last', 'uli', 'date_of_birth', 'first_name', 'last_name', 'date_of_death', 'rec_id_1', 'rec_id_2']
+            print(comparison_results[['rec_id_1', 'rec_id_2', 'snd_last', 'uli', 'date_of_birth', 'first_name', 'last_name', 'date_of_death']])
+            
+            # Apply the conditions to filter matches
+            matches = comparison_results[(comparison_results[[ 'snd_last', 'uli', 'date_of_birth', 'last_name', 'first_name', 'date_of_death']].sum(axis=1) >=3)]
+
+            
+            print(matches[['rec_id_1', 'rec_id_2', 'snd_last', 'uli', 'date_of_birth', 'first_name', 'last_name', 'date_of_death']])
+
             
             
-            features = comp_cl.compute(candidate_links, df_table1, df_table2) 
+            # Get the indices of matches in df_table1 and df_table2
+            matches_indices_table1 = matches['rec_id_1'].values
+            matches_indices_table2 = matches['rec_id_2'].values
             
+            # Filter out duplicates from df_table1
+            non_dup = df_table1[~df_table1.index.isin(matches_indices_table1)]
+                      
             
-            link1a = features[features.sum(axis=1) >= 2 ] 
-            
-            
-            # Reset index to use record identifiers
-            link1a = link1a.reset_index()
-            
-            # Extract indices for joining
-            index_df_table1 = link1a['level_0']
-            index_df_table2 = link1a['level_1']
-            
-            # Join the dataframes using the indices
-            joined_df_table1 = df_table1.loc[index_df_table1].reset_index(drop=True)
-            joined_df_table2 = df_table2.loc[index_df_table2].reset_index(drop=True)
-            
-            # Combine the joined dataframes
-            link1 = pd.concat([joined_df_table1, joined_df_table2], axis=1)
-            
-            # Remove duplicates based on the combined DataFrame
-            link1a = link1.drop_duplicates()
-            
-            print(link1a)
-            
-            comp_cl2 = recordlinkage.Compare()
-            comp_cl2.exact('lst_name', 'lstnme1', label='last_name')
-            comp_cl2.exact('fst_name', 'fstnme1', label = 'first_name') 
-            comp_cl2.exact('fst_name', 'midnme1', label = 'first_name_equals_midnme1')
-            comp_cl2.exact('dth_dte', 'dth_dte1', label = 'date_of_death')
-            comp_cl2.date_proximity('dob', 'dob1', label = 'dob_proximity_within_10_years')
-            
-            features2 = comp_cl2.compute(candidate_links, df_table1, df_table2) 
-            
-            
-            # Apply the conditions to filter link1b
-            link1b = features2[(features2['last_name'] == 1) & 
-                              (features2['date_of_death'] == 1) &
-                              (features2['dob_proximity_within_10_years'] == 1) &
-                              ((features2['first_name'] == 1) | (features2['first_name_equals_midnme1'] == 1))]
-            
-            
-            
-            # Reset index to use record identifiers
-            link1b = link1b.reset_index()
-            
-            # Extract indices for joining
-            index_df_table1 = link1b['level_0']
-            index_df_table2 = link1b['level_1']
-            
-            # Join the dataframes using the indices
-            joined_df_table1 = df_table1.loc[index_df_table1].reset_index(drop=True)
-            joined_df_table2 = df_table2.loc[index_df_table2].reset_index(drop=True)
-            
-            # Combine the joined dataframes
-            link1 = pd.concat([joined_df_table1, joined_df_table2], axis=1)
-            
-            # Remove duplicates based on the combined DataFrame
-            link1b = link1.drop_duplicates()
-            
-                        
-            # Combining the Links (Links1)
-            Link= pd.concat([link1a, link1b], ignore_index=True)
-            
-            # Sorting and Deduplication
-            Link.sort_values(by=['acb_no', 'acbno1'], inplace=True)
            
-            # Drop rows where matflag is 'Exact Match'
-            Link.drop_duplicates(subset=['acb_no', 'acbno1'], keep='first', inplace=True)
-            
-            return Link
+            return non_dup
+
 
 
     
